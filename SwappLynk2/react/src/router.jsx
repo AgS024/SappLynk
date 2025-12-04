@@ -28,9 +28,6 @@ import MisCartasEnVenta from "./views/MisCartasEnVenta.jsx";
 // ✅ NUEVA VISTA: detalle de una publicación del marketplace
 import DetalleEnVenta from "./views/DetalleEnVenta.jsx";
 
-// Vistas “legacy” de encuestas
-import Surveys from "./views/Surveys.jsx";
-import SurveyView from "./views/SurveyView.jsx";
 
 const router = createBrowserRouter([
   {
@@ -65,10 +62,6 @@ const router = createBrowserRouter([
       // Detalle de carta genérico por id de TCGdex
       { path: "/carta/:id", element: <CartaDetalle /> },
 
-      // Rutas de encuestas
-      { path: "/surveys", element: <Surveys /> },
-      { path: "/surveys/create", element: <SurveyView /> },
-      { path: "/surveys/:id", element: <SurveyView /> },
     ],
   },
   {

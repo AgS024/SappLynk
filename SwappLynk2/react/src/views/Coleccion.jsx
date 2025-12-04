@@ -5,7 +5,7 @@ import PageComponent from "../components/PageComponent.jsx";
 import axiosClient from "../axios.js";
 import CartaListItem from "../components/CartaListItem.jsx";
 
-// 🔥 Nuevo: botón "Buscar Cartas"
+// 🔥 Botón "Buscar Cartas"
 import TButton from "../components/core/TButton.jsx";
 import { SparklesIcon } from "@heroicons/react/24/solid";
 
@@ -17,25 +17,44 @@ export default function Coleccion() {
   const navigate = useNavigate();
 
   useEffect(() => {
+    let cancelado = false;
+
+    const cargarColeccion = () => {
+      setLoading(true);
+      setError(null);
+
+      axiosClient
+        .get("/coleccion")
+        .then((res) => {
+          if (cancelado) return;
+
+          const data = Array.isArray(res.data) ? res.data : [];
+          setCartas(data);
+        })
+        .catch((err) => {
+          if (cancelado) return;
+
+          // 👇 Ignoramos abortos/cancelaciones “normales”
+          if (err.code === "ECONNABORTED" || err.message === "canceled") {
+            console.warn("Petición de colección cancelada/abortada:", err.message);
+            return;
+          }
+
+          console.error("Error cargando colección:", err);
+          setError("No se ha podido cargar tu colección.");
+        })
+        .finally(() => {
+          if (!cancelado) setLoading(false);
+        });
+    };
+
     cargarColeccion();
+
+    // Cleanup: marcamos como cancelado para no tocar estado si el componente se desmonta
+    return () => {
+      cancelado = true;
+    };
   }, []);
-
-  const cargarColeccion = () => {
-    setLoading(true);
-    setError(null);
-
-    axiosClient
-      .get("/coleccion")
-      .then((res) => {
-        const data = Array.isArray(res.data) ? res.data : [];
-        setCartas(data);
-      })
-      .catch((err) => {
-        console.error("Error cargando colección:", err);
-        setError("No se ha podido cargar tu colección.");
-      })
-      .finally(() => setLoading(false));
-  };
 
   const handleDelete = (carta) => {
     if (!window.confirm("¿Eliminar esta carta de tu colección?")) return;

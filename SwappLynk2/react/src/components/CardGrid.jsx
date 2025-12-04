@@ -53,11 +53,11 @@ export default function CardGrid({ cartas, marketplace = false }) {
           <Link key={key} to={linkTo} className="group">
             <div className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-xl transition-shadow duration-300 h-full flex flex-col">
               {/* Imagen */}
-              <div className="relative bg-gray-100 h-64">
+              <div className="relative bg-gray-100 ">
                 <img
                   src={imageUrl}
                   alt={cartaName}
-                  className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
+                  className="w-full h-full group-hover:scale-110 transition-transform duration-300"
                   onError={(e) => {
                     e.target.src =
                       "https://via.placeholder.com/250x350?text=Error";
