@@ -22,9 +22,9 @@ Route::middleware('auth:sanctum')->group(function () {
     /* ============================
      *  AUTENTICACIÓN
      * ============================ */
-    Route::get('/user', function (Request $request) {
-        return $request->user();
-    });
+    // Antes tenías un closure aquí; ahora usamos el controlador
+    Route::get('/user', [AuthController::class, 'me']);
+    Route::put('/user', [AuthController::class, 'updateProfile']);
     Route::post('/logout', [AuthController::class, 'logout']);
 
     /* ============================
@@ -79,7 +79,7 @@ Route::middleware('auth:sanctum')->group(function () {
     // ✅ SOLO MIS cartas en venta (usuario autenticado)
     Route::get('/enventa/mias', [EnVentaController::class, 'mySales']);
 
-    // ✅ DETALLE de una publicación concreta (NECESARIO para /api/enventa/{id})
+    // ✅ DETALLE de una publicación concreta
     Route::get('/enventa/{id}', [EnVentaController::class, 'show'])
         ->where('id', '[0-9]+');
 
@@ -103,6 +103,7 @@ Route::middleware('auth:sanctum')->group(function () {
     /* ============================
      *  VALORACIONES
      * ============================ */
+    Route::get('/valoraciones', [ValoracionController::class, 'index']);
     Route::post('/valoraciones', [ValoracionController::class, 'store']);
 });
 

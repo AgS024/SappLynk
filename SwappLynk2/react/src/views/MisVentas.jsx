@@ -13,7 +13,7 @@ export default function MisVentas() {
   // Estado para la valoración
   const [modalAbierto, setModalAbierto] = useState(false);
   const [ventaSeleccionada, setVentaSeleccionada] = useState(null);
-  const [rating, setRating] = useState(5);
+  const [rating, setRating] = useState(10); // ⭐ ahora por defecto 10 (0–10)
   const [comentario, setComentario] = useState("");
   const [enviando, setEnviando] = useState(false);
   const [errorValoracion, setErrorValoracion] = useState(null);
@@ -66,8 +66,6 @@ export default function MisVentas() {
       posiblesImagenes[0] ||
       "https://via.placeholder.com/80x110?text=Sin+imagen";
 
-    // El nombre lo seguimos calculando por si lo queremos en el modal,
-    // pero NO lo mostramos en la tabla.
     const nombreCarta =
       tcg.name || enVenta.id_carta || "Carta sin nombre";
 
@@ -83,8 +81,6 @@ export default function MisVentas() {
     const vendedor = getVendedor(venta);
     if (!vendedor) return "Vendedor desconocido";
 
-    // En tu JSON viene así:
-    // "usuario": { "name": "Pepe Milla", ... }
     if (vendedor.name) return vendedor.name;
 
     return `Usuario #${vendedor.id}`;
@@ -104,7 +100,7 @@ export default function MisVentas() {
       return;
     }
     setVentaSeleccionada(venta);
-    setRating(5);
+    setRating(10); // ⭐ al abrir el modal, valor por defecto 10 (0–10)
     setComentario("");
     setErrorValoracion(null);
     setModalAbierto(true);
@@ -131,7 +127,7 @@ export default function MisVentas() {
       .post("/valoraciones", {
         id_valorado: vendedor.id,
         id_venta: ventaSeleccionada.id,
-        valor: Number(rating),
+        valor: Number(rating), // ⭐ ahora 0–10
         descripcion: comentario || null,
       })
       .then((res) => {
@@ -290,7 +286,7 @@ export default function MisVentas() {
 
                 <div>
                   <label className="block text-sm font-semibold mb-1">
-                    Puntuación
+                    Puntuación (0–10)
                   </label>
                   <select
                     value={rating}
@@ -298,11 +294,17 @@ export default function MisVentas() {
                     className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500"
                     disabled={enviando}
                   >
-                    <option value={5}>5 - Excelente</option>
-                    <option value={4}>4 - Muy bien</option>
-                    <option value={3}>3 - Normal</option>
-                    <option value={2}>2 - Regular</option>
-                    <option value={1}>1 - Muy mal</option>
+                    <option value={10}>10 - Excelente</option>
+                    <option value={9}>9 - Muy bien</option>
+                    <option value={8}>8 - Muy bien</option>
+                    <option value={7}>7 - Bien</option>
+                    <option value={6}>6 - Correcto</option>
+                    <option value={5}>5 - Normal</option>
+                    <option value={4}>4 - Regular</option>
+                    <option value={3}>3 - Malo</option>
+                    <option value={2}>2 - Muy malo</option>
+                    <option value={1}>1 - Terrible</option>
+                    <option value={0}>0 - Nefasto</option>
                   </select>
                 </div>
 

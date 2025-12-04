@@ -1,11 +1,8 @@
-import { useEffect } from "react";
-import {
-  TrashIcon,
-  ArrowTopRightOnSquareIcon,
-} from "@heroicons/react/24/outline";
-import TButton from "./core/TButton.jsx";
+// react/src/components/CartaListItem.jsx
 
-export default function CartaListItem({ carta, onPublish, onDelete }) {
+import { useEffect } from "react";
+
+export default function CartaListItem({ carta, onPublish }) {
   useEffect(() => {
     // console.log("Carta en colección:", carta);
   }, [carta]);
@@ -42,21 +39,29 @@ export default function CartaListItem({ carta, onPublish, onDelete }) {
   const cantidad = carta.cantidad || 1;
 
   return (
-    <div className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow">
+    <div
+      onClick={onPublish}
+      className="group bg-white rounded-lg shadow-md overflow-hidden hover:shadow-xl transition-all cursor-pointer relative"
+    >
+      {/* 🔥 Overlay rojo al hacer hover */}
+      <div className="absolute inset-0 bg-red-500 opacity-0 group-hover:opacity-10 transition-opacity pointer-events-none"></div>
+
+      {/* Imagen */}
       <div className="relative overflow-hidden bg-gray-100 h-64 flex items-center justify-center">
         <img
           src={imageUrl}
           alt={cartaName}
-          className="w-full h-full object-contain"
+          className="w-full h-full object-contain transition-transform duration-300 group-hover:scale-105"
           loading="lazy"
           onError={(e) => {
             e.currentTarget.src =
-              "https://via.placeholder.com/250x350?text=Sin+imagen";
+              'https://via.placeholder.com/250x350?text=Sin+imagen';
           }}
         />
       </div>
 
-      <div className="p-3">
+      {/* Información */}
+      <div className="p-3 relative z-10">
         <h3 className="font-bold text-sm truncate text-gray-900">
           {cartaName}
         </h3>
@@ -74,30 +79,6 @@ export default function CartaListItem({ carta, onPublish, onDelete }) {
             💬 {carta.notas}
           </p>
         )}
-
-        <div className="flex gap-2 mt-3">
-          {/* 🔵 Este botón ahora sirve para ir a la página de detalle de la carta en colección */}
-          <TButton
-            circle
-            link
-            color="indigo"
-            onClick={onPublish}
-            title="Ver / gestionar esta carta"
-          >
-            <ArrowTopRightOnSquareIcon className="h-5 w-5" />
-          </TButton>
-
-          {/* 🔴 Eliminar directamente desde la colección */}
-          <TButton
-            circle
-            link
-            color="red"
-            onClick={onDelete}
-            title="Eliminar de colección"
-          >
-            <TrashIcon className="h-5 w-5" />
-          </TButton>
-        </div>
       </div>
     </div>
   );
