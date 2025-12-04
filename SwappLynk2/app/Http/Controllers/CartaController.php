@@ -97,8 +97,13 @@ class CartaController extends Controller
         // -----------------------------
         // El select de React manda el id del set (ej: "swsh1")
         if ($request->filled('set')) {
-            // La API de TCGdex filtra por set.id
-            $filters['set.id'] = $request->input('set');
+            $setId = $request->input('set');
+
+            // 👉 La API de TCGdex filtra por `set` (id del set)
+            $filters['set'] = $setId;
+
+            // Por si acaso, dejamos también set.id como compat extra
+            $filters['set.id'] = $setId;
         }
 
         // -----------------------------
