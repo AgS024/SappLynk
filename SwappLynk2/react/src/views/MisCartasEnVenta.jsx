@@ -10,8 +10,12 @@ export default function MisCartasEnVenta() {
   const [preciosEdit, setPreciosEdit] = useState({});
   const { setCartasEnVenta } = useStateContext();
 
+  // 🆕 id de la publicación para la que estamos pidiendo confirmación de retirada
+  const [pubIdConfirm, setPubIdConfirm] = useState(null);
+
   useEffect(() => {
     cargarMisPublicaciones();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const cargarMisPublicaciones = () => {
@@ -19,6 +23,7 @@ export default function MisCartasEnVenta() {
     axiosClient
       .get("/enventa/mias")
       .then((res) => {
+        console.log("Mis cartas en venta:", res.data);
         setPublicaciones(res.data);
         if (setCartasEnVenta) {
           setCartasEnVenta(res.data);
@@ -39,6 +44,8 @@ export default function MisCartasEnVenta() {
   };
 
   const handleGuardarPrecio = (pub) => {
+    console.log("Click en GUARDAR PRECIO para:", pub);
+
     const nuevoPrecioStr = preciosEdit[pub.id] ?? pub.precio;
     const nuevoPrecio = Number(nuevoPrecioStr);
 
@@ -50,6 +57,7 @@ export default function MisCartasEnVenta() {
     axiosClient
       .put(`/enventa/${pub.id}`, { precio: nuevoPrecio })
       .then((res) => {
+        console.log("Respuesta actualización precio:", res.data);
         const actualizada = res.data.en_venta ?? res.data;
 
         setPublicaciones((prev) =>
@@ -67,35 +75,43 @@ export default function MisCartasEnVenta() {
       });
   };
 
-  const handleRetirar = (pub) => {
-    if (
-      !window.confirm(
-        "¿Seguro que quieres retirar esta carta de la venta? Se devolverá a tu colección."
-      )
-    ) {
-      return;
-    }
+  // 🆕 Primer click: marcar esta publicación como "en confirmación"
+  const handleRetirarClick = (pub) => {
+    console.log("Primer click en RETIRAR para:", pub);
+    setPubIdConfirm(pub.id);
+  };
+
+  // 🆕 Segundo click: ejecutar la retirada de verdad
+  const handleConfirmarRetirada = (pub) => {
+    console.log("Confirmando retirada para:", pub);
 
     axiosClient
       .delete(`/enventa/${pub.id}`)
-      .then(() => {
-        // Se devuelve a la colección en el backend
+      .then((res) => {
+        console.log("Carta retirada correctamente:", res.data);
         setPublicaciones((prev) => prev.filter((p) => p.id !== pub.id));
+        setPubIdConfirm(null);
       })
       .catch((err) => {
         console.error("Error retirando carta de la venta:", err);
         alert("No se ha podido retirar la carta de la venta.");
+        setPubIdConfirm(null);
       });
   };
 
-  // 🔧 IMPORTANTE: misma lógica que usas en otros sitios (incluyendo tcg.image “a pelo”)
+  const handleCancelarRetirada = () => {
+    console.log("Cancelando retirada");
+    setPubIdConfirm(null);
+  };
+
+  // Imagen TCG
   const getImageUrl = (pub) => {
     const tcg = pub.tcgdex || pub.carta || {};
     return (
       tcg.images?.small ||
       tcg.image?.normal ||
       pub.image ||
-      tcg.image || // <- a veces viene así (string)
+      tcg.image ||
       "https://via.placeholder.com/250x350?text=Sin+imagen"
     );
   };
@@ -145,6 +161,8 @@ export default function MisCartasEnVenta() {
               preciosEdit[pub.id] !== undefined
                 ? preciosEdit[pub.id]
                 : pub.precio;
+
+            const enConfirmacion = pubIdConfirm === pub.id;
 
             return (
               <div
@@ -196,24 +214,54 @@ export default function MisCartasEnVenta() {
                       />
                     </div>
 
-                    <div className="flex gap-2 mt-2">
-                      <button
-                        onClick={() => handleGuardarPrecio(pub)}
-                        className="flex-1 px-3 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 text-sm font-semibold"
-                      >
-                        Guardar precio
-                      </button>
-                      <button
-                        onClick={() => handleRetirar(pub)}
-                        className="px-3 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 text-sm font-semibold"
-                      >
-                        Retirar
-                      </button>
-                    </div>
+                    {/* Bloque de botones con confirmación interna */}
+                    {enConfirmacion ? (
+                      <div className="flex flex-col gap-2 mt-2">
+                        <p className="text-xs text-gray-700">
+                          ¿Seguro que quieres retirar esta carta de la venta?
+                          Se devolverá 1 copia a tu colección.
+                        </p>
+                        <div className="flex gap-2">
+                          <button
+                            type="button"
+                            onClick={() => handleConfirmarRetirada(pub)}
+                            className="flex-1 px-3 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 text-sm font-semibold"
+                          >
+                            Confirmar retirada
+                          </button>
+                          <button
+                            type="button"
+                            onClick={handleCancelarRetirada}
+                            className="px-3 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 text-sm font-semibold"
+                          >
+                            Cancelar
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex gap-2 mt-2">
+                        <button
+                          type="button"
+                          onClick={() => handleGuardarPrecio(pub)}
+                          className="flex-1 px-3 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 text-sm font-semibold"
+                        >
+                          Guardar precio
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleRetirarClick(pub)}
+                          className="px-3 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 text-sm font-semibold"
+                        >
+                          Retirar
+                        </button>
+                      </div>
+                    )}
 
-                    <p className="text-xs text-gray-500 mt-1">
-                      Al retirar la carta, se devolverá 1 copia a tu colección.
-                    </p>
+                    {!enConfirmacion && (
+                      <p className="text-xs text-gray-500 mt-1">
+                        Al retirar la carta, se devolverá 1 copia a tu colección.
+                      </p>
+                    )}
                   </div>
                 </div>
               </div>
