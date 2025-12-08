@@ -13,7 +13,7 @@ export default function MisVentas() {
   // Estado para la valoración
   const [modalAbierto, setModalAbierto] = useState(false);
   const [ventaSeleccionada, setVentaSeleccionada] = useState(null);
-  const [rating, setRating] = useState(10); // ⭐ ahora por defecto 10 (0–10)
+  const [rating, setRating] = useState(10); // 0–10
   const [comentario, setComentario] = useState("");
   const [enviando, setEnviando] = useState(false);
   const [errorValoracion, setErrorValoracion] = useState(null);
@@ -66,8 +66,7 @@ export default function MisVentas() {
       posiblesImagenes[0] ||
       "https://via.placeholder.com/80x110?text=Sin+imagen";
 
-    const nombreCarta =
-      tcg.name || enVenta.id_carta || "Carta sin nombre";
+    const nombreCarta = tcg.name || enVenta.id_carta || "Carta sin nombre";
 
     return { imageUrl, nombreCarta };
   };
@@ -90,6 +89,22 @@ export default function MisVentas() {
     return Array.isArray(venta.valoraciones) && venta.valoraciones.length > 0;
   };
 
+  // Estado de la venta (1,2,3,4...)
+  const getEstadoVenta = (venta) => {
+    if (venta.id_estado) return Number(venta.id_estado);
+    if (venta.estado?.id) return Number(venta.estado.id);
+    return null; // sin estado -> compatibilidad (trataremos como que se puede valorar)
+  };
+
+  // Solo se puede valorar si estado es:
+  // 2 = Recibido, 3 = Enviado
+  // NO se puede valorar si 1 = Esperando recibir o 4 = Cancelada
+  const sePuedeValorar = (venta) => {
+    const estado = getEstadoVenta(venta);
+    if (estado === null) return true; // por si hay ventas antiguas sin estado
+    return estado === 2 || estado === 3;
+  };
+
   // ==========================
   //   LÓGICA DEL MODAL
   // ==========================
@@ -99,8 +114,16 @@ export default function MisVentas() {
       alert("Ya has valorado esta compra.");
       return;
     }
+
+    if (!sePuedeValorar(venta)) {
+      alert(
+        "Solo puedes valorar cuando la compra está en estado recibido o enviado."
+      );
+      return;
+    }
+
     setVentaSeleccionada(venta);
-    setRating(10); // ⭐ al abrir el modal, valor por defecto 10 (0–10)
+    setRating(10); // valor por defecto 10 (0–10)
     setComentario("");
     setErrorValoracion(null);
     setModalAbierto(true);
@@ -113,6 +136,14 @@ export default function MisVentas() {
 
   const handleEnviarValoracion = () => {
     if (!ventaSeleccionada) return;
+
+    // Doble check por si el estado ha cambiado mientras el modal estaba abierto
+    if (!sePuedeValorar(ventaSeleccionada)) {
+      setErrorValoracion(
+        "El estado de la compra ha cambiado. Solo puedes valorar cuando está en recibido o enviado."
+      );
+      return;
+    }
 
     const vendedor = getVendedor(ventaSeleccionada);
     if (!vendedor?.id) {
@@ -127,7 +158,7 @@ export default function MisVentas() {
       .post("/valoraciones", {
         id_valorado: vendedor.id,
         id_venta: ventaSeleccionada.id,
-        valor: Number(rating), // ⭐ ahora 0–10
+        valor: Number(rating),
         descripcion: comentario || null,
       })
       .then((res) => {
@@ -202,6 +233,7 @@ export default function MisVentas() {
                   const { imageUrl } = getCardInfo(venta);
                   const vendedorNombre = getNombreVendedor(venta);
                   const valorada = yaValorada(venta);
+                  const puedeValorar = sePuedeValorar(venta);
 
                   return (
                     <tr
@@ -247,6 +279,10 @@ export default function MisVentas() {
                         {valorada ? (
                           <span className="text-xs text-gray-500">
                             Ya valorado
+                          </span>
+                        ) : !puedeValorar ? (
+                          <span className="text-xs text-gray-400">
+                            Valoración no disponible
                           </span>
                         ) : (
                           <button

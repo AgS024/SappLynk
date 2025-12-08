@@ -22,6 +22,7 @@ class VentaController extends Controller
                 'enVenta.usuario',
                 'enVenta.grado',
                 'valoraciones',
+                'estado',
             ])
             ->orderByDesc('fecha_venta')
             ->get();
@@ -65,45 +66,23 @@ class VentaController extends Controller
         }
 
         // 1º Registrar la venta
+        //    Arranca siempre en estado "1 - esperando recibir"
         $venta = Venta::create([
-            'id_en_venta'   => $enVenta->id,
-            'id_comprador'  => $usuarioId,
-            'precio_total'  => $enVenta->precio,
-            'fecha_venta'   => now()
+            'id_en_venta'  => $enVenta->id,
+            'id_comprador' => $usuarioId,
+            'precio_total' => $enVenta->precio,
+            'fecha_venta'  => now(),
+            'id_estado'    => 1, // Esperando recibir
         ]);
 
-        // 2º Marca la publicación como vendida
+        // 2º Marca la publicación como vendida (reservada)
         $enVenta->estado = 'vendida';
         $enVenta->save();
 
-        // 3º Actualiza colecciones del vendedor y comprador
-        Coleccion::where([
-            'id_usuario' => $enVenta->id_usuario,
-            'id_carta'   => $enVenta->id_carta,
-            'id_grado'   => $enVenta->id_grado
-        ])->decrement('cantidad');
-
-        // Si ya no quedan, elimina registro
-        $vendedorCol = Coleccion::where([
-            'id_usuario' => $enVenta->id_usuario,
-            'id_carta'   => $enVenta->id_carta,
-            'id_grado'   => $enVenta->id_grado
-        ])->first();
-
-        if ($vendedorCol && $vendedorCol->cantidad <= 0) {
-            $vendedorCol->delete();
-        }
-
-        // Añade la carta a la colección del comprador
-        $compradorCol = Coleccion::firstOrNew([
-            'id_usuario' => $usuarioId,
-            'id_carta'   => $enVenta->id_carta,
-            'id_grado'   => $enVenta->id_grado
-        ]);
-
-        $compradorCol->cantidad = $compradorCol->cantidad + 1;
-        $compradorCol->fecha_adquisicion = now();
-        $compradorCol->save();
+        // ⚠️ IMPORTANTE:
+        // Ya NO tocamos aquí las colecciones.
+        // El movimiento vendedor -> comprador se hará cuando el admin marque estado "Enviado" (3)
+        // en AdminController::updateVentaEstado.
 
         return response()->json($venta, 201);
     }
@@ -117,6 +96,7 @@ class VentaController extends Controller
             'enVenta.grado',
             'comprador',
             'valoraciones',
+            'estado',
         ])->findOrFail($id);
 
         $tcgdex = new TCGdexService();

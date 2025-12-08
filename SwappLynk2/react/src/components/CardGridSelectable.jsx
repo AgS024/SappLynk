@@ -1,5 +1,5 @@
-import { useState, useMemo } from 'react';
-import ModalAñadirCarta from './ModalAñadirCarta.jsx';
+import { useState, useMemo } from "react";
+import ModalAñadirCarta from "./ModalAñadirCarta.jsx";
 
 export default function CardGridSelectable({ cartas, onSelectCarta, sets }) {
   const [cartaSeleccionada, setCartaSeleccionada] = useState(null);
@@ -57,8 +57,8 @@ export default function CardGridSelectable({ cartas, onSelectCarta, sets }) {
       const key = String(raw).toLowerCase();
       const found = setIndex.get(key);
       if (!found || !found.name) return null;
-      if (typeof found.name === 'string') return found.name;
-      if (typeof found.name === 'object') {
+      if (typeof found.name === "string") return found.name;
+      if (typeof found.name === "object") {
         return (
           found.name.es ||
           found.name.en ||
@@ -76,14 +76,14 @@ export default function CardGridSelectable({ cartas, onSelectCarta, sets }) {
       carta?.carta?.set ||
       carta?.set;
 
-    if (setObj && typeof setObj === 'object') {
-      if (typeof setObj.name === 'string') return setObj.name;
-      if (setObj.name && typeof setObj.name === 'object') {
+    if (setObj && typeof setObj === "object") {
+      if (typeof setObj.name === "string") return setObj.name;
+      if (setObj.name && typeof setObj.name === "object") {
         return (
           setObj.name.es ||
           setObj.name.en ||
           Object.values(setObj.name)[0] ||
-          'Set desconocido'
+          "Set desconocido"
         );
       }
       const possibleId =
@@ -96,13 +96,13 @@ export default function CardGridSelectable({ cartas, onSelectCarta, sets }) {
       if (fromId) return fromId;
     }
 
-    if (typeof tcg?.set === 'string') {
+    if (typeof tcg?.set === "string") {
       const fromIndex = findSetFromKey(tcg.set);
       if (fromIndex) return fromIndex;
       return tcg.set;
     }
 
-    if (typeof carta?.set === 'string') {
+    if (typeof carta?.set === "string") {
       const fromIndex = findSetFromKey(carta.set);
       if (fromIndex) return fromIndex;
       return carta.set;
@@ -110,30 +110,12 @@ export default function CardGridSelectable({ cartas, onSelectCarta, sets }) {
 
     const tcgId = tcg.id || carta.id;
     if (tcgId) {
-      const [setCode] = String(tcgId).split('-');
+      const [setCode] = String(tcgId).split("-");
       const fromId = findSetFromKey(setCode);
       if (fromId) return fromId;
     }
 
-    const candidateImageUrl =
-      carta.image ||
-      tcg.image ||
-      tcg.imageUrl ||
-      tcg.imageUrlHiRes ||
-      (tcg.images && (tcg.images.large || tcg.images.small));
-
-    if (candidateImageUrl && setIndex.size) {
-      try {
-        const url = new URL(candidateImageUrl);
-        const segments = url.pathname.split('/').filter(Boolean);
-        for (const seg of segments) {
-          const fromSeg = findSetFromKey(seg);
-          if (fromSeg) return fromSeg;
-        }
-      } catch (e) {}
-    }
-
-    return 'Set desconocido';
+    return "Set desconocido";
   };
 
   return (
@@ -142,24 +124,16 @@ export default function CardGridSelectable({ cartas, onSelectCarta, sets }) {
         {cartasVisibles.map((carta) => {
           const tcg = carta.tcgdex || carta.data || carta.carta || carta;
 
-          // 🔹 Usamos siempre versión pequeña/normal para ir rápido
           const imageUrl =
             tcg.images?.small ||
             tcg.image?.normal ||
             carta.image?.normal ||
             carta.image ||
             tcg.image ||
-            'https://via.placeholder.com/250x350?text=Sin+imagen';
+            "https://via.placeholder.com/250x350?text=Sin+imagen";
 
-          const cartaName = tcg.name || 'Carta sin nombre';
+          const cartaName = tcg.name || "Carta sin nombre";
           const setName = resolveSetName(carta);
-          const rarity = tcg.rarity;
-          const hp = tcg.hp;
-          const types = Array.isArray(tcg.types)
-            ? tcg.types
-            : tcg.types
-            ? [tcg.types]
-            : null;
 
           const key =
             carta.id ||
@@ -170,54 +144,30 @@ export default function CardGridSelectable({ cartas, onSelectCarta, sets }) {
           return (
             <div
               key={key}
-              className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-xl transition-shadow duration-300 h-full flex flex-col"
+              onClick={() => abrirModal(carta)}
+              className="cursor-pointer bg-white rounded-lg shadow-md overflow-hidden hover:shadow-xl transition duration-300 h-full flex flex-col group"
             >
               <div className="relative overflow-hidden bg-gray-100 h-100">
                 <img
                   src={imageUrl}
                   alt={cartaName}
-                  className="w-full h-full object-cover"
+                  className="w-full h-full object-contain"
                   loading="lazy"
                   onError={(e) => {
                     e.currentTarget.src =
-                      'https://via.placeholder.com/250x350?text=Sin+imagen';
+                      "https://via.placeholder.com/250x350?text=Sin+imagen";
                   }}
                 />
               </div>
 
-              <div className="p-4 flex-1 flex flex-col justify-between">
+              {/* BLOQUE INFERIOR — el que se pone rojizo */}
+              <div className="p-4 flex-1 flex flex-col justify-between bg-white transition-colors duration-200 group-hover:bg-red-100">
                 <div>
                   <h3 className="font-bold text-sm truncate text-gray-900">
                     {cartaName}
                   </h3>
                   <p className="text-gray-600 text-xs mt-1">{setName}</p>
                 </div>
-
-                <div className="mt-3 space-y-1 text-xs text-gray-600">
-                  {rarity && (
-                    <p>
-                      <span className="font-semibold">Rareza:</span> {rarity}
-                    </p>
-                  )}
-                  {hp && (
-                    <p>
-                      <span className="font-semibold">HP:</span> {hp}
-                    </p>
-                  )}
-                  {types && types.length > 0 && (
-                    <p>
-                      <span className="font-semibold">Tipos:</span>{' '}
-                      {types.join(', ')}
-                    </p>
-                  )}
-                </div>
-
-                <button
-                  onClick={() => abrirModal(carta)}
-                  className="mt-4 w-full px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 font-semibold text-sm"
-                >
-                  ➕ Añadir
-                </button>
               </div>
             </div>
           );
@@ -227,9 +177,7 @@ export default function CardGridSelectable({ cartas, onSelectCarta, sets }) {
       {totalPaginas > 1 && (
         <div className="flex justify-center items-center mt-6 gap-4">
           <button
-            onClick={() =>
-              setPaginaActual((p) => Math.max(p - 1, 1))
-            }
+            onClick={() => setPaginaActual((p) => Math.max(p - 1, 1))}
             disabled={paginaActual === 1}
             className="px-3 py-1 bg-gray-200 rounded disabled:opacity-50 hover:bg-gray-300 transition"
           >
@@ -239,9 +187,7 @@ export default function CardGridSelectable({ cartas, onSelectCarta, sets }) {
             Página {paginaActual} de {totalPaginas}
           </span>
           <button
-            onClick={() =>
-              setPaginaActual((p) => Math.min(p + 1, totalPaginas))
-            }
+            onClick={() => setPaginaActual((p) => Math.min(p + 1, totalPaginas))}
             disabled={paginaActual === totalPaginas}
             className="px-3 py-1 bg-gray-200 rounded disabled:opacity-50 hover:bg-gray-300 transition"
           >

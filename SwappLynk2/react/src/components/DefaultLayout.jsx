@@ -6,43 +6,55 @@ import {
   MenuButton,
   MenuItem,
   MenuItems,
-} from '@headlessui/react';
+} from "@headlessui/react";
 import {
   Bars3Icon,
   XMarkIcon,
   ShoppingBagIcon,
   BookmarkIcon,
   SparklesIcon,
-} from '@heroicons/react/24/outline';
-import { NavLink, Outlet, Navigate } from 'react-router-dom';
-import { useStateContext } from '../Contexts/ContextProvider';
-import { UserIcon } from '@heroicons/react/24/solid';
-import axiosClient from '../axios';
-import logo from '../assets/image_copy.png';
+} from "@heroicons/react/24/outline";
+import { NavLink, Outlet, Navigate } from "react-router-dom";
+import { useStateContext } from "../Contexts/ContextProvider";
+import { UserIcon } from "@heroicons/react/24/solid";
+import axiosClient from "../axios";
+import logo from "../assets/image_copy.png";
 
 const navigation = [
-  { name: 'Inicio', to: '/', icon: null },
-  { name: 'Marketplace', to: '/marketplace', icon: ShoppingBagIcon },
-  { name: 'Mi Colección', to: '/coleccion', icon: BookmarkIcon },
-  { name: 'Wishlist', to: '/wishlist', icon: SparklesIcon },
+  { name: "Inicio", to: "/", icon: null },
+  { name: "Marketplace", to: "/marketplace", icon: ShoppingBagIcon },
+  { name: "Mi Colección", to: "/coleccion", icon: BookmarkIcon },
+  { name: "Wishlist", to: "/wishlist", icon: SparklesIcon },
   // ✅ NUEVO: menú para mis cartas en venta
-  { name: 'Mis cartas en venta', to: '/mis-cartas-en-venta', icon: ShoppingBagIcon },
+  { name: "Mis cartas en venta", to: "/mis-cartas-en-venta", icon: ShoppingBagIcon },
 ];
 
 function classNames(...classes) {
-  return classes.filter(Boolean).join(' ');
+  return classes.filter(Boolean).join(" ");
 }
 
 export default function DefaultLayout() {
-  const { currentUser, userToken, setCurrentUser, setUserToken } = useStateContext();
+  const {
+    currentUser,
+    userToken,
+    setCurrentUser,
+    setUserToken,
+    isAdmin,
+  } = useStateContext();
 
+  // 🔐 Si no hay token → login
   if (!userToken) {
     return <Navigate to="/login" />;
   }
 
+  // 👑 Si ES admin → que NO use este layout, lo mandamos al panel de admin
+  if (isAdmin) {
+    return <Navigate to="/admin" />;
+  }
+
   const logout = (ev) => {
     ev.preventDefault();
-    axiosClient.post('/logout').then(() => {
+    axiosClient.post("/logout").then(() => {
       setCurrentUser({});
       setUserToken(null);
     });
@@ -65,8 +77,10 @@ export default function DefaultLayout() {
                       to={item.to}
                       className={({ isActive }) =>
                         classNames(
-                          isActive ? 'bg-red-700 text-white' : 'text-white hover:bg-red-700',
-                          'rounded-md px-3 py-2 text-sm font-medium',
+                          isActive
+                            ? "bg-red-700 text-white"
+                            : "text-white hover:bg-red-700",
+                          "rounded-md px-3 py-2 text-sm font-medium"
                         )
                       }
                     >
@@ -76,6 +90,7 @@ export default function DefaultLayout() {
                 </div>
               </div>
             </div>
+
             <div className="hidden md:block">
               <div className="ml-4 flex items-center md:ml-6">
                 <Menu as="div" className="relative ml-3">
@@ -118,12 +133,19 @@ export default function DefaultLayout() {
                 </Menu>
               </div>
             </div>
+
             <div className="-mr-2 flex md:hidden">
               <DisclosureButton className="group relative inline-flex items-center justify-center rounded-md p-2 text-white hover:bg-red-700 focus:outline-2 focus:outline-offset-2 focus:outline-white">
                 <span className="absolute -inset-0.5" />
                 <span className="sr-only">Abrir menú principal</span>
-                <Bars3Icon aria-hidden="true" className="block size-6 group-data-open:hidden" />
-                <XMarkIcon aria-hidden="true" className="hidden size-6 group-data-open:block" />
+                <Bars3Icon
+                  aria-hidden="true"
+                  className="block size-6 group-data-open:hidden"
+                />
+                <XMarkIcon
+                  aria-hidden="true"
+                  className="hidden size-6 group-data-open:block"
+                />
               </DisclosureButton>
             </div>
           </div>
@@ -137,8 +159,10 @@ export default function DefaultLayout() {
                 to={item.to}
                 className={({ isActive }) =>
                   classNames(
-                    isActive ? 'bg-red-700 text-white' : 'text-white hover:bg-red-700',
-                    'block rounded-md px-3 py-2 text-base font-medium',
+                    isActive
+                      ? "bg-red-700 text-white"
+                      : "text-white hover:bg-red-700",
+                    "block rounded-md px-3 py-2 text-base font-medium"
                   )
                 }
               >

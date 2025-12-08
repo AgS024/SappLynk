@@ -10,6 +10,7 @@ use App\Http\Controllers\EnVentaController;
 use App\Http\Controllers\VentaController;
 use App\Http\Controllers\ValoracionController;
 use App\Http\Controllers\WishlistController;
+use App\Http\Controllers\AdminController;
 
 /*
 |--------------------------------------------------------------------------
@@ -22,7 +23,6 @@ Route::middleware('auth:sanctum')->group(function () {
     /* ============================
      *  AUTENTICACIÓN
      * ============================ */
-    // Antes tenías un closure aquí; ahora usamos el controlador
     Route::get('/user', [AuthController::class, 'me']);
     Route::put('/user', [AuthController::class, 'updateProfile']);
     Route::post('/logout', [AuthController::class, 'logout']);
@@ -38,22 +38,15 @@ Route::middleware('auth:sanctum')->group(function () {
     /* ============================
      *  COLECCIÓN
      * ============================ */
-
-    // Listado general de la colección del usuario
     Route::get('/coleccion', [ColeccionController::class, 'index']);
-
-    // Añadir carta a colección
     Route::post('/coleccion', [ColeccionController::class, 'store']);
 
-    // Eliminar entrada de colección por ID numérico (legacy, no se usa)
     Route::delete('/coleccion/{id}', [ColeccionController::class, 'destroy'])
         ->where('id', '[0-9]+');
 
-    // Actualizar entrada de colección por ID numérico (legacy, no se usa)
     Route::put('/coleccion/{id}', [ColeccionController::class, 'update'])
         ->where('id', '[0-9]+');
 
-    // Rutas por ID de carta (ej. bw8-3)
     Route::get('/coleccion/carta/{id_carta}', [ColeccionController::class, 'showByCard']);
     Route::put('/coleccion/carta/{id_carta}', [ColeccionController::class, 'updateByCard']);
     Route::delete('/coleccion/carta/{id_carta}', [ColeccionController::class, 'destroyByCard']);
@@ -70,32 +63,20 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::delete('/wishlist/{id}', [WishlistController::class, 'destroy']);
 
     /* ============================
-     *  PONER CARTA EN VENTA
+     *  EN VENTA
      * ============================ */
-
-    // Todas las cartas en venta (para el marketplace público)
     Route::get('/enventa', [EnVentaController::class, 'index']);
-
-    // ✅ SOLO MIS cartas en venta (usuario autenticado)
     Route::get('/enventa/mias', [EnVentaController::class, 'mySales']);
-
-    // ✅ DETALLE de una publicación concreta
     Route::get('/enventa/{id}', [EnVentaController::class, 'show'])
         ->where('id', '[0-9]+');
-
-    // Publicar una carta en venta
     Route::post('/enventa', [EnVentaController::class, 'store']);
-
-    // Actualizar precio/estado de una publicación
     Route::put('/enventa/{id}', [EnVentaController::class, 'update'])
         ->where('id', '[0-9]+');
-
-    // Eliminar / cancelar publicación (y devolver a colección)
     Route::delete('/enventa/{id}', [EnVentaController::class, 'destroy'])
         ->where('id', '[0-9]+');
 
     /* ============================
-     *  COMPRAS / VENTAS (histórico de compras)
+     *  COMPRAS / VENTAS (user normal)
      * ============================ */
     Route::get('/ventas', [VentaController::class, 'index']);
     Route::post('/ventas', [VentaController::class, 'store']);
@@ -105,10 +86,32 @@ Route::middleware('auth:sanctum')->group(function () {
      * ============================ */
     Route::get('/valoraciones', [ValoracionController::class, 'index']);
     Route::post('/valoraciones', [ValoracionController::class, 'store']);
+
+    /* ============================
+     *  RUTAS ADMIN
+     * ============================ */
+    Route::middleware('admin')->prefix('admin')->group(function () {
+
+        // Usuarios
+        Route::get('/users', [AdminController::class, 'indexUsers']);
+        Route::get('/users/{id}', [AdminController::class, 'showUser'])
+            ->where('id', '[0-9]+');
+        Route::post('/users/{id}/cancelar', [AdminController::class, 'cancelUser'])
+            ->where('id', '[0-9]+');
+        Route::post('/users/{id}/reactivar', [AdminController::class, 'reactivateUser'])
+            ->where('id', '[0-9]+');
+
+        // Ventas globales
+        Route::get('/ventas', [AdminController::class, 'indexVentas']);
+
+        // ✅ Cambiar estado de una venta (progresivo + movimiento de cartas)
+        Route::put('/ventas/{id}/estado', [AdminController::class, 'updateVentaEstado'])
+            ->where('id', '[0-9]+');
+    });
 });
 
 /* ============================
- *  RUTAS PÚBLICAS (no auth)
+ *  RUTAS PÚBLICAS
  * ============================ */
 Route::post('/signup', [AuthController::class, 'signup']);
 Route::post('/login', [AuthController::class, 'login']);

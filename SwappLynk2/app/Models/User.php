@@ -20,6 +20,8 @@ class User extends Authenticatable
         'cp',
         'suma_val',
         'cantidad_val',
+        'admin',        
+        'cancelada',    
     ];
 
     protected $hidden = [
@@ -29,8 +31,10 @@ class User extends Authenticatable
 
     protected $casts = [
         'email_verified_at' => 'datetime',
-        'password' => 'hashed',
-        'suma_val' => 'decimal:2',
+        'password'          => 'hashed',
+        'suma_val'          => 'decimal:2',
+        'admin'             => 'boolean',
+        'cancelada'         => 'boolean',  
     ];
 
     // Relaciones
@@ -64,11 +68,11 @@ class User extends Authenticatable
         return $this->hasMany(Valoracion::class, 'id_valorador');
     }
 
-    // Método para calcular la valoración media
+    // Método para calcular la media de valoraciones
     public function valoracionMedia()
     {
-        return $this->cantidad_val > 0 
-            ? round($this->suma_val / $this->cantidad_val, 2) 
+        return $this->cantidad_val > 0
+            ? round($this->suma_val / $this->cantidad_val, 2)
             : 0;
     }
 }

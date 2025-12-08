@@ -28,6 +28,12 @@ import MisCartasEnVenta from "./views/MisCartasEnVenta.jsx";
 // ✅ NUEVA VISTA: detalle de una publicación del marketplace
 import DetalleEnVenta from "./views/DetalleEnVenta.jsx";
 
+// ✅ Layout y vistas de ADMIN
+import AdminLayout from "./components/admin/AdminLayout.jsx";
+import AdminDashboard from "./views/admin/AdminDashboard.jsx";
+import AdminUsuarios from "./views/admin/AdminUsuarios.jsx";
+import AdminUsuarioDetalle from "./views/admin/AdminUsuarioDetalle.jsx";
+import AdminVentas from "./views/admin/AdminVentas.jsx";
 
 const router = createBrowserRouter([
   {
@@ -61,9 +67,30 @@ const router = createBrowserRouter([
 
       // Detalle de carta genérico por id de TCGdex
       { path: "/carta/:id", element: <CartaDetalle /> },
-
     ],
   },
+
+  // ============================
+  //  RUTAS ADMIN (layout propio)
+  // ============================
+  {
+    path: "/admin",
+    element: <AdminLayout />,
+    children: [
+      // /admin
+      { index: true, element: <AdminDashboard /> },
+
+      // /admin/usuarios
+      { path: "usuarios", element: <AdminUsuarios /> },
+
+      // /admin/usuarios/:id
+      { path: "usuarios/:id", element: <AdminUsuarioDetalle /> },
+
+      // /admin/ventas
+      { path: "ventas", element: <AdminVentas /> },
+    ],
+  },
+
   {
     path: "/",
     element: <GuestLayout />,

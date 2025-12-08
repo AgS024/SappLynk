@@ -15,7 +15,7 @@ class EnVenta extends Model
         'precio',
         'fecha_publicacion',
         'estado',
-        'notas',          // ✅ añadimos notas
+        'notas',
     ];
 
     protected $casts = [

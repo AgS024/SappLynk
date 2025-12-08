@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use App\Models\Valoracion;
+use App\Models\Venta;
 use Illuminate\Support\Facades\Auth;
 
 class ValoracionController extends Controller
@@ -28,11 +29,37 @@ class ValoracionController extends Controller
         $request->validate([
             'id_valorado'  => 'required|exists:users,id',
             'id_venta'     => 'required|exists:ventas,id',
-            // ⭐ antes: min:1 → ahora 0–10
+            // 0–10
             'valor'        => 'required|integer|min:0|max:10',
             'descripcion'  => 'nullable|string',
         ]);
 
+        // 1) Cargamos la venta para comprobar estado y comprador
+        /** @var \App\Models\Venta $venta */
+        $venta = Venta::findOrFail($request->id_venta);
+
+        // Asegurarnos de que el que valora es quien compró
+        if ($venta->id_comprador !== $usuarioId) {
+            return response()->json([
+                'error' => 'Solo el comprador de esta venta puede valorarla.',
+            ], 403);
+        }
+
+        // 2) Comprobamos el estado de la compra
+        // Estados:
+        // 1 - esperando recibir  ❌ no permite valorar
+        // 2 - recibido           ✅ permite valorar
+        // 3 - enviado            ✅ permite valorar
+        // 4 - cancelada          ❌ no permite valorar
+        $estadoId = (int) ($venta->id_estado ?? 0);
+
+        if ($estadoId === 1 || $estadoId === 4) {
+            return response()->json([
+                'error' => 'Solo puedes valorar cuando la compra está en estado recibido o enviado.',
+            ], 400);
+        }
+
+        // 3) Evitar valoraciones duplicadas para la misma venta / usuario
         $exists = Valoracion::where([
             'id_valorador' => $usuarioId,
             'id_valorado'  => $request->id_valorado,
@@ -43,6 +70,7 @@ class ValoracionController extends Controller
             return response()->json(['error' => 'Ya has valorado esta venta.'], 400);
         }
 
+        // 4) Crear la valoración
         $valoracion = Valoracion::create([
             'id_valorado'  => $request->id_valorado,
             'id_valorador' => $usuarioId,
