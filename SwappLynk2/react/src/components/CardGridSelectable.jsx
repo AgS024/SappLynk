@@ -1,9 +1,7 @@
+// react/src/components/CardGridSelectable.jsx
 import { useState, useMemo } from "react";
-import ModalAñadirCarta from "./ModalAñadirCarta.jsx";
 
 export default function CardGridSelectable({ cartas, onSelectCarta, sets }) {
-  const [cartaSeleccionada, setCartaSeleccionada] = useState(null);
-  const [mostrarModal, setMostrarModal] = useState(false);
   const [paginaActual, setPaginaActual] = useState(1);
 
   const setIndex = useMemo(() => {
@@ -20,23 +18,6 @@ export default function CardGridSelectable({ cartas, onSelectCarta, sets }) {
 
   const cartasPorPagina = 20;
   const totalPaginas = Math.ceil((cartas?.length || 0) / cartasPorPagina);
-
-  const abrirModal = (carta) => {
-    setCartaSeleccionada(carta);
-    setMostrarModal(true);
-  };
-
-  const cerrarModal = () => {
-    setMostrarModal(false);
-    setCartaSeleccionada(null);
-  };
-
-  const handleAñadir = (datosAñadida) => {
-    if (onSelectCarta && cartaSeleccionada) {
-      onSelectCarta(cartaSeleccionada, datosAñadida);
-    }
-    cerrarModal();
-  };
 
   if (!cartas || cartas.length === 0) {
     return (
@@ -144,7 +125,7 @@ export default function CardGridSelectable({ cartas, onSelectCarta, sets }) {
           return (
             <div
               key={key}
-              onClick={() => abrirModal(carta)}
+              onClick={() => onSelectCarta && onSelectCarta(carta)}
               className="cursor-pointer bg-white rounded-lg shadow-md overflow-hidden hover:shadow-xl transition duration-300 h-full flex flex-col group"
             >
               <div className="relative overflow-hidden bg-gray-100 h-100">
@@ -187,22 +168,15 @@ export default function CardGridSelectable({ cartas, onSelectCarta, sets }) {
             Página {paginaActual} de {totalPaginas}
           </span>
           <button
-            onClick={() => setPaginaActual((p) => Math.min(p + 1, totalPaginas))}
+            onClick={() =>
+              setPaginaActual((p) => Math.min(p + 1, totalPaginas))
+            }
             disabled={paginaActual === totalPaginas}
             className="px-3 py-1 bg-gray-200 rounded disabled:opacity-50 hover:bg-gray-300 transition"
           >
             Siguiente ➡️
           </button>
         </div>
-      )}
-
-      {mostrarModal && cartaSeleccionada && (
-        <ModalAñadirCarta
-          carta={cartaSeleccionada}
-          sets={sets}
-          onConfirm={handleAñadir}
-          onCancel={cerrarModal}
-        />
       )}
     </>
   );

@@ -1,4 +1,3 @@
-// react/src/router.jsx
 import { createBrowserRouter } from "react-router-dom";
 import DefaultLayout from "./components/DefaultLayout.jsx";
 import GuestLayout from "./components/GuestLayout.jsx";
@@ -10,25 +9,26 @@ import Signup from "./views/Signup.jsx";
 // Vistas principales
 import Dashboard from "./views/Dashboard.jsx";
 import ExplorarCartas from "./views/ExplorarCartas.jsx";
+import ExplorarCartasWishlist from "./views/ExplorarCartasWishlist.jsx";
 import Marketplace from "./views/Marketplace.jsx";
 import Coleccion from "./views/Coleccion.jsx";
 import Wishlist from "./views/Wishlist.jsx";
 import MisVentas from "./views/MisVentas.jsx";
 import Perfil from "./views/Perfil.jsx";
 
-// Detalle de carta TCGdex (si ya lo usabas)
+// Detalle de carta TCGdex
 import CartaDetalle from "./views/CartaDetalle.jsx";
 
 // Detalle de carta en colección
 import CartaColeccionDetalle from "./views/CartaColeccionDetalle.jsx";
 
-// ✅ NUEVA VISTA: mis cartas en venta
+// Mis cartas en venta
 import MisCartasEnVenta from "./views/MisCartasEnVenta.jsx";
 
-// ✅ NUEVA VISTA: detalle de una publicación del marketplace
+// Detalle de una publicación del marketplace
 import DetalleEnVenta from "./views/DetalleEnVenta.jsx";
 
-// ✅ Layout y vistas de ADMIN
+// ADMIN
 import AdminLayout from "./components/admin/AdminLayout.jsx";
 import AdminDashboard from "./views/admin/AdminDashboard.jsx";
 import AdminUsuarios from "./views/admin/AdminUsuarios.jsx";
@@ -43,24 +43,36 @@ const router = createBrowserRouter([
       { path: "/", element: <Dashboard /> },
       { path: "/dashboard", element: <Dashboard /> },
 
+      // ⚠️ SI QUIERES, PUEDES DEJAR ESTA RUTA GENÉRICA USANDO EL MODAL DE COLECCIÓN
       { path: "/explorar-cartas", element: <ExplorarCartas /> },
+
       { path: "/marketplace", element: <Marketplace /> },
 
-      // ✅ Detalle de una publicación concreta del marketplace
+      // Detalle de una publicación concreta del marketplace
       { path: "/marketplace/:ventaId", element: <DetalleEnVenta /> },
 
       // Colección general
       { path: "/coleccion", element: <Coleccion /> },
 
+      // 🔹 EXPLORAR PARA AÑADIR A COLECCIÓN
+      { path: "/coleccion/explorar-cartas", element: <ExplorarCartas /> },
+
       // Detalle de una entrada concreta de la colección
       { path: "/mi-coleccion/:coleccionId", element: <CartaColeccionDetalle /> },
 
+      // Wishlist general
       { path: "/wishlist", element: <Wishlist /> },
 
-      // Histórico de compras (ya lo tenías)
+      // 🔹 EXPLORAR PARA AÑADIR A WISHLIST
+      {
+        path: "/wishlist/explorar-cartas",
+        element: <ExplorarCartasWishlist />,
+      },
+
+      // Histórico de compras
       { path: "/mis-ventas", element: <MisVentas /> },
 
-      // ✅ NUEVA RUTA: mis cartas publicadas en venta
+      // Mis cartas publicadas en venta
       { path: "/mis-cartas-en-venta", element: <MisCartasEnVenta /> },
 
       { path: "/perfil/:id", element: <Perfil /> },
@@ -71,26 +83,20 @@ const router = createBrowserRouter([
   },
 
   // ============================
-  //  RUTAS ADMIN (layout propio)
+  //  RUTAS ADMIN
   // ============================
   {
     path: "/admin",
     element: <AdminLayout />,
     children: [
-      // /admin
       { index: true, element: <AdminDashboard /> },
-
-      // /admin/usuarios
       { path: "usuarios", element: <AdminUsuarios /> },
-
-      // /admin/usuarios/:id
       { path: "usuarios/:id", element: <AdminUsuarioDetalle /> },
-
-      // /admin/ventas
       { path: "ventas", element: <AdminVentas /> },
     ],
   },
 
+  // Invitados (login / signup)
   {
     path: "/",
     element: <GuestLayout />,

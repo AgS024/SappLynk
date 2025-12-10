@@ -13,13 +13,18 @@ class EnVentaController extends Controller
 {
     /**
      * Lista todas las cartas en venta ACTIVAS (para el marketplace público)
-     * ⚠️ IMPORTANTE: excluye SIEMPRE las cartas del usuario autenticado.
+     * ⚠️ IMPORTANTE: excluye SIEMPRE las cartas del usuario autenticado
+     * y solo muestra cartas de usuarios con cuenta NO cancelada.
      */
     public function index()
     {
         $usuarioId = Auth::id();
 
-        $query = EnVenta::where('estado', 'activa');
+        $query = EnVenta::where('estado', 'activa')
+            // 🔴 Solo publicaciones de usuarios cuya cuenta NO está cancelada
+            ->whereHas('usuario', function ($q) {
+                $q->where('cancelada', false);
+            });
 
         // Si hay usuario autenticado, no devolvemos sus propias publicaciones
         if ($usuarioId) {

@@ -1,11 +1,8 @@
-// react/src/views/Coleccion.jsx
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import PageComponent from "../components/PageComponent.jsx";
 import axiosClient from "../axios.js";
 import CartaListItem from "../components/CartaListItem.jsx";
-
-// 🔥 Botón "Buscar Cartas"
 import TButton from "../components/core/TButton.jsx";
 import { SparklesIcon } from "@heroicons/react/24/solid";
 
@@ -34,7 +31,6 @@ export default function Coleccion() {
         .catch((err) => {
           if (cancelado) return;
 
-          // 👇 Ignoramos abortos/cancelaciones “normales”
           if (err.code === "ECONNABORTED" || err.message === "canceled") {
             console.warn("Petición de colección cancelada/abortada:", err.message);
             return;
@@ -50,7 +46,6 @@ export default function Coleccion() {
 
     cargarColeccion();
 
-    // Cleanup: marcamos como cancelado para no tocar estado si el componente se desmonta
     return () => {
       cancelado = true;
     };
@@ -113,7 +108,7 @@ export default function Coleccion() {
     <PageComponent
       title="Mi colección"
       buttons={
-        <TButton color="indigo" to="/explorar-cartas">
+        <TButton color="indigo" to="/coleccion/explorar-cartas">
           <SparklesIcon className="h-6 w-6 mr-2" />
           Buscar Cartas
         </TButton>

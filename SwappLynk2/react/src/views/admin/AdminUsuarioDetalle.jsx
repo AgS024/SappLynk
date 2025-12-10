@@ -6,7 +6,7 @@ import { ArrowLeftIcon } from "@heroicons/react/24/outline";
 import AdminTopbar from "../../components/admin/AdminTopbar.jsx";
 
 export default function AdminUsuarioDetalle() {
-  const { id } = useParams(); // /admin/usuarios/:id
+  const { id } = useParams(); 
   const navigate = useNavigate();
 
   const [usuario, setUsuario] = useState(null);
@@ -16,6 +16,10 @@ export default function AdminUsuarioDetalle() {
 
   const [compras, setCompras] = useState([]);
   const [ventas, setVentas] = useState([]);
+
+  // 🔥 NUEVO: estado del modal de confirmación
+  const [modalOpen, setModalOpen] = useState(false);
+  const [accionTipo, setAccionTipo] = useState(null); // "cancelar" | "reactivar"
 
   useEffect(() => {
     cargarUsuario();
@@ -44,55 +48,54 @@ export default function AdminUsuarioDetalle() {
       .finally(() => setLoading(false));
   };
 
-  const handleCancelarCuenta = () => {
-    if (
-      !window.confirm(
-        "¿Seguro que quieres cancelar esta cuenta? El usuario no podrá iniciar sesión."
-      )
-    ) {
-      return;
-    }
+  // ============================
+  //   ABRIR MODAL
+  // ============================
+  const abrirModal = (tipo) => {
+    setAccionTipo(tipo);
+    setModalOpen(true);
+  };
+
+  const cerrarModal = () => {
+    setModalOpen(false);
+    setAccionTipo(null);
+  };
+
+  // ============================
+  //   ACCIONES CONFIRMADAS
+  // ============================
+
+  const confirmarAccion = () => {
+    if (!usuario) return;
 
     setAccionLoading(true);
+
+    const endpoint =
+      accionTipo === "cancelar"
+        ? `/admin/users/${id}/cancelar`
+        : `/admin/users/${id}/reactivar`;
+
     axiosClient
-      .post(`/admin/users/${id}/cancelar`)
+      .post(endpoint)
       .then((res) => {
         setUsuario(res.data);
       })
       .catch((err) => {
-        console.error("Error cancelando cuenta:", err);
+        console.error("Error en acción admin:", err);
         alert(
           err.response?.data?.message ||
-            "No se ha podido cancelar la cuenta."
+            "No se ha podido completar la acción."
         );
       })
-      .finally(() => setAccionLoading(false));
+      .finally(() => {
+        setAccionLoading(false);
+        cerrarModal();
+      });
   };
 
-  const handleReactivarCuenta = () => {
-    if (
-      !window.confirm(
-        "¿Reactivar esta cuenta? El usuario podrá volver a iniciar sesión."
-      )
-    ) {
-      return;
-    }
-
-    setAccionLoading(true);
-    axiosClient
-      .post(`/admin/users/${id}/reactivar`)
-      .then((res) => {
-        setUsuario(res.data);
-      })
-      .catch((err) => {
-        console.error("Error reactivando cuenta:", err);
-        alert(
-          err.response?.data?.message ||
-            "No se ha podido reactivar la cuenta."
-        );
-      })
-      .finally(() => setAccionLoading(false));
-  };
+  // ============================
+  //   RENDERIZADO
+  // ============================
 
   const renderEstadoCuenta = () => {
     if (!usuario) return null;
@@ -139,6 +142,47 @@ export default function AdminUsuarioDetalle() {
     <>
       <AdminTopbar title="Detalle de usuario" />
 
+      {/* MODAL DE CONFIRMACIÓN */}
+      {modalOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999]">
+          <div className="bg-white rounded-xl shadow-xl p-6 w-full max-w-md space-y-4">
+            <h2 className="text-xl font-bold text-gray-900">
+              {accionTipo === "cancelar"
+                ? "Cancelar cuenta"
+                : "Reactivar cuenta"}
+            </h2>
+
+            <p className="text-gray-700 text-sm">
+              ¿Estás seguro de que quieres{" "}
+              <span className="font-semibold text-red-600">
+                {accionTipo === "cancelar"
+                  ? "cancelar esta cuenta"
+                  : "reactivar esta cuenta"}
+              </span>
+              ?
+            </p>
+
+            <div className="flex gap-3 pt-2">
+              <button
+                onClick={cerrarModal}
+                className="flex-1 px-4 py-2 bg-gray-200 rounded-lg text-gray-800 hover:bg-gray-300 font-semibold text-sm"
+              >
+                No, volver
+              </button>
+
+              <button
+                onClick={confirmarAccion}
+                disabled={accionLoading}
+                className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 font-semibold text-sm disabled:opacity-60"
+              >
+                {accionLoading ? "Procesando..." : "Sí, continuar"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* CONTENIDO PRINCIPAL */}
       <main className="px-6 py-6 max-w-6xl mx-auto w-full">
         <button
           type="button"
@@ -159,7 +203,7 @@ export default function AdminUsuarioDetalle() {
           <div className="space-y-6">
             {/* Tarjeta principal */}
             <section className="bg-white rounded-xl shadow-sm border border-red-100 p-6 flex flex-col md:flex-row gap-6">
-              {/* “Avatar” pokéball grande */}
+              {/* Avatar tipo Pokémon */}
               <div className="flex items-start justify-center md:justify-start">
                 <div className="relative h-24 w-24">
                   <div className="absolute inset-0 rounded-full bg-white border-4 border-black" />
@@ -185,6 +229,7 @@ export default function AdminUsuarioDetalle() {
                 </div>
                 <p className="text-sm text-gray-600">{usuario.email}</p>
 
+                {/* Stats */}
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-4">
                   <div className="bg-red-50 border border-red-100 rounded-lg p-3">
                     <p className="text-xs text-red-700 font-semibold">
@@ -229,12 +274,12 @@ export default function AdminUsuarioDetalle() {
                   </p>
                 </div>
 
-                {/* Botones de acción */}
+                {/* BOTONES CON MODAL */}
                 <div className="mt-4 flex flex-wrap gap-3">
                   {usuario.cancelada ? (
                     <button
                       type="button"
-                      onClick={handleReactivarCuenta}
+                      onClick={() => abrirModal("reactivar")}
                       disabled={accionLoading}
                       className="inline-flex items-center px-4 py-2 text-sm font-semibold rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-60"
                     >
@@ -243,7 +288,7 @@ export default function AdminUsuarioDetalle() {
                   ) : (
                     <button
                       type="button"
-                      onClick={handleCancelarCuenta}
+                      onClick={() => abrirModal("cancelar")}
                       disabled={accionLoading}
                       className="inline-flex items-center px-4 py-2 text-sm font-semibold rounded-lg bg-red-600 text-white hover:bg-red-700 disabled:opacity-60"
                     >
@@ -254,7 +299,7 @@ export default function AdminUsuarioDetalle() {
               </div>
             </section>
 
-            {/* Listados básicos de compras / ventas */}
+            {/* COMPRAS / VENTAS */}
             <section className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4">
                 <h3 className="text-lg font-semibold text-gray-900 mb-2">
@@ -274,9 +319,9 @@ export default function AdminUsuarioDetalle() {
                           </p>
                           <p className="text-gray-500">
                             {c.fecha_venta
-                              ? new Date(
-                                  c.fecha_venta
-                                ).toLocaleDateString("es-ES")
+                              ? new Date(c.fecha_venta).toLocaleDateString(
+                                  "es-ES"
+                                )
                               : "-"}{" "}
                             · {Number(c.precio_total || 0).toFixed(2)} €
                           </p>
@@ -316,18 +361,15 @@ export default function AdminUsuarioDetalle() {
               </div>
             </section>
 
-            {/* Link a vista pública de perfil (si la quieres reaprovechar) */}
             <section className="text-sm text-gray-600">
               <p>
-                Ver perfil público de este usuario:{" "}
+                Ver perfil público:{" "}
                 <Link
                   to={`/perfil/${usuario.id}`}
                   className="text-red-600 hover:underline"
                 >
                   /perfil/{usuario.id}
                 </Link>
-                {"  "}
-                (solo lectura; el admin no debe editar desde ahí).
               </p>
             </section>
           </div>

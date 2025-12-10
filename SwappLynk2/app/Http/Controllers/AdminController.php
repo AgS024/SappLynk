@@ -12,6 +12,31 @@ use App\Models\Coleccion;
 class AdminController extends Controller
 {
     /**
+     * GET /admin/resumen
+     * Devuelve datos agregados para el dashboard de administración.
+     */
+    public function summary()
+    {
+        $totalUsuarios     = User::count();
+        $totalVentas       = Venta::count();
+        $totalValoraciones = Valoracion::count();
+
+        // Cartas en venta (estado 'activa') de usuarios cuya cuenta NO está cancelada
+        $totalEnVentaNoCanceladas = EnVenta::where('estado', 'activa')
+            ->whereHas('usuario', function ($q) {
+                $q->where('cancelada', false);
+            })
+            ->count();
+
+        return response()->json([
+            'total_usuarios'               => $totalUsuarios,
+            'total_ventas'                 => $totalVentas,
+            'total_valoraciones'           => $totalValoraciones,
+            'total_en_venta_no_canceladas' => $totalEnVentaNoCanceladas,
+        ]);
+    }
+
+    /**
      * GET /admin/users
      * Lista todos los usuarios del sistema (para la tabla de AdminUsuarios.jsx)
      */

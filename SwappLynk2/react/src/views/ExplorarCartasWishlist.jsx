@@ -3,9 +3,9 @@ import PageComponent from "../components/PageComponent.jsx";
 import axiosClient from "../axios.js";
 import CardGridSelectable from "../components/CardGridSelectable.jsx";
 import SearchBarAvanzado from "../components/SearchBarAvanzado.jsx";
-import ModalAñadirCarta from "../components/ModalAñadirCarta.jsx";
+import ModalWishlistCarta from "../components/ModalWishlistCarta.jsx";
 
-export default function ExplorarCartas() {
+export default function ExplorarCartasWishlist() {
   const [cartas, setCartas] = useState([]);
   const [loading, setLoading] = useState(false);
   const [sets, setSets] = useState([]);
@@ -15,7 +15,7 @@ export default function ExplorarCartas() {
     set: "",
   });
 
-  // Estado del modal de COLECCIÓN
+  // Estado del modal de WISHLIST
   const [modalAbierto, setModalAbierto] = useState(false);
   const [cartaSeleccionada, setCartaSeleccionada] = useState(null);
 
@@ -29,7 +29,7 @@ export default function ExplorarCartas() {
     axiosClient
       .get("/cartas/sets")
       .then((res) => {
-        console.log("Sets cargados:", res.data);
+        console.log("Sets cargados (wishlist):", res.data);
         setSets(res.data);
       })
       .catch((err) => console.error("Error cargando sets:", err));
@@ -48,7 +48,7 @@ export default function ExplorarCartas() {
       ? `/cartas/search/advanced?${params.toString()}`
       : `/cartas/search/advanced`;
 
-    console.log("Llamando a:", url);
+    console.log("Llamando a (wishlist):", url);
 
     axiosClient
       .get(url)
@@ -97,12 +97,12 @@ export default function ExplorarCartas() {
         }
 
         console.log(
-          `Cartas cargadas: ${res.data.length}, tras filtro de set: ${data.length}`
+          `[Wishlist] Cartas cargadas: ${res.data.length}, tras filtro de set: ${data.length}`
         );
         setCartas(data);
       })
       .catch((err) => {
-        console.error("Error cargando cartas:", err);
+        console.error("Error cargando cartas (wishlist):", err);
         setCartas([]);
       })
       .finally(() => setLoading(false));
@@ -113,7 +113,7 @@ export default function ExplorarCartas() {
     buscarCartas(nuevosFiltros);
   };
 
-  // Cuando se hace clic en una carta del grid → modal de COLECCIÓN
+  // Click en carta → modal de WISHLIST
   const handleSeleccionCarta = (carta) => {
     setCartaSeleccionada(carta);
     setModalAbierto(true);
@@ -124,13 +124,13 @@ export default function ExplorarCartas() {
     setCartaSeleccionada(null);
   };
 
-  const handleConfirmColeccion = () => {
-    // El propio ModalAñadirCarta hace el POST a /coleccion
+  const handleConfirmWishlist = () => {
+    // El propio ModalWishlistCarta hace el POST a /wishlist
     cerrarModal();
   };
 
   return (
-    <PageComponent title="🔍 Explorar Cartas Pokémon">
+    <PageComponent title="🔍 Explorar Cartas para Wishlist">
       <div className="space-y-6">
         <SearchBarAvanzado onSearch={handleSearch} sets={sets} />
 
@@ -160,10 +160,9 @@ export default function ExplorarCartas() {
         )}
 
         {modalAbierto && cartaSeleccionada && (
-          <ModalAñadirCarta
+          <ModalWishlistCarta
             carta={cartaSeleccionada}
-            sets={sets}
-            onConfirm={handleConfirmColeccion}
+            onConfirm={handleConfirmWishlist}
             onCancel={cerrarModal}
           />
         )}

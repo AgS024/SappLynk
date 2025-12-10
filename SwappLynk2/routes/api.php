@@ -92,6 +92,9 @@ Route::middleware('auth:sanctum')->group(function () {
      * ============================ */
     Route::middleware('admin')->prefix('admin')->group(function () {
 
+        // Resumen para el dashboard
+        Route::get('/resumen', [AdminController::class, 'summary']);
+
         // Usuarios
         Route::get('/users', [AdminController::class, 'indexUsers']);
         Route::get('/users/{id}', [AdminController::class, 'showUser'])
@@ -104,7 +107,7 @@ Route::middleware('auth:sanctum')->group(function () {
         // Ventas globales
         Route::get('/ventas', [AdminController::class, 'indexVentas']);
 
-        // ✅ Cambiar estado de una venta (progresivo + movimiento de cartas)
+        // Cambiar estado de una venta (progresivo + movimiento de cartas)
         Route::put('/ventas/{id}/estado', [AdminController::class, 'updateVentaEstado'])
             ->where('id', '[0-9]+');
     });
