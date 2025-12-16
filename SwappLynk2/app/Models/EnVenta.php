@@ -3,11 +3,12 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use App\Jobs\SendWishlistPriceAlert;
 
 class EnVenta extends Model
 {
     protected $table = 'en_venta';
-    
+
     protected $fillable = [
         'id_usuario',
         'id_carta',
@@ -49,15 +50,41 @@ class EnVenta extends Model
         return $query->where('estado', 'activa');
     }
 
-    // Verificar si está vendida
     public function estaVendida()
     {
         return $this->estado === 'vendida';
     }
 
-    // Verificar si está activa
     public function estaActiva()
     {
         return $this->estado === 'activa';
+    }
+
+    /**
+     * ✅ Disparar aviso cuando “aparece” una carta:
+     * - al CREAR una publicación activa
+     * - al ACTUALIZAR y cambiar estado a 'activa'
+     */
+    protected static function booted()
+    {
+        // Cuando se crea
+        static::created(function (EnVenta $pub) {
+            if ($pub->estado === 'activa') {
+                SendWishlistPriceAlert::dispatch($pub->id);
+            }
+        });
+
+        // Cuando se actualiza
+        static::updated(function (EnVenta $pub) {
+            // Si antes no estaba activa y ahora sí
+            if ($pub->wasChanged('estado') && $pub->estado === 'activa') {
+                SendWishlistPriceAlert::dispatch($pub->id);
+            }
+
+            // Si sigue activa pero cambió el precio (y bajó), también puede interesar
+            if ($pub->wasChanged('precio') && $pub->estado === 'activa') {
+                SendWishlistPriceAlert::dispatch($pub->id);
+            }
+        });
     }
 }

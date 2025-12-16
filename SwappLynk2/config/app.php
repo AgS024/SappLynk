@@ -118,9 +118,12 @@ return [
     |
     */
 
-    'maintenance' => [
+        'maintenance' => [
         'driver' => env('APP_MAINTENANCE_DRIVER', 'file'),
         'store' => env('APP_MAINTENANCE_STORE', 'database'),
     ],
+
+    // 👉 URL del frontend (para emails)
+    'frontend_url' => env('FRONTEND_URL', env('APP_URL')),
 
 ];

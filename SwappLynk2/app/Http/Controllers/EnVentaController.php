@@ -5,26 +5,25 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use App\Models\EnVenta;
 use App\Models\Coleccion;
+use App\Models\Wishlist;
 use App\Services\TCGdexService;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Log;
+use App\Mail\WishlistPriceAlertMail;
 
 class EnVentaController extends Controller
 {
     /**
      * Lista todas las cartas en venta ACTIVAS (para el marketplace público)
-     * ⚠️ IMPORTANTE: excluye SIEMPRE las cartas del usuario autenticado
-     * y solo muestra cartas de usuarios con cuenta NO cancelada.
+     * ⚠️ IMPORTANTE: excluye SIEMPRE las cartas del usuario autenticado.
      */
     public function index()
     {
         $usuarioId = Auth::id();
 
-        $query = EnVenta::where('estado', 'activa')
-            // 🔴 Solo publicaciones de usuarios cuya cuenta NO está cancelada
-            ->whereHas('usuario', function ($q) {
-                $q->where('cancelada', false);
-            });
+        $query = EnVenta::where('estado', 'activa');
 
         // Si hay usuario autenticado, no devolvemos sus propias publicaciones
         if ($usuarioId) {
@@ -80,7 +79,6 @@ class EnVentaController extends Controller
         $validator = Validator::make($request->all(), [
             'id_carta' => 'required|string',
             'id_grado' => 'required|integer',
-            // 🔽 antes: min:0.1
             'precio'   => 'required|numeric|min:0.01',
             'notas'    => 'nullable|string',
         ]);
@@ -110,6 +108,68 @@ class EnVentaController extends Controller
             'notas'             => $request->notas,
         ]);
 
+        // ============================
+        //  ✅ ALERTA WISHLIST (COLA)
+        // ============================
+        try {
+            $precioPublicacion = (float) $publicacion->precio;
+            $idCarta = (string) $publicacion->id_carta;
+
+            // Traemos la info de la carta una sola vez (para el nombre en el email)
+            $tcgdex = new TCGdexService();
+            $tcgCard = $tcgdex->getCard($idCarta);
+            $cardName = is_array($tcgCard) ? ($tcgCard['name'] ?? $idCarta) : $idCarta;
+
+            // Vendedor (para mostrarlo en el email)
+            $publicacion->load('usuario');
+            $sellerName = $publicacion->usuario?->name ?? ('Usuario #' . (string) $publicacion->id_usuario);
+
+            // URL frontend al detalle del marketplace (PUERTO 3000)
+            $frontend = rtrim(env('FRONTEND_URL', 'http://localhost:3000'), '/');
+            $url = $frontend . '/marketplace/' . $publicacion->id;
+
+            // Buscar entradas de wishlist que cumplan:
+            // - misma carta
+            // - precio_aviso no nulo
+            // - precio_aviso >= precio de la publicación
+            $q = Wishlist::where('id_carta', $idCarta)
+                ->whereNotNull('precio_aviso')
+                ->where('precio_aviso', '>=', $precioPublicacion)
+                ->with('usuario');
+
+            // Si tienes users.cancelada, evitamos avisar a cuentas canceladas
+            // (si no existe esa columna, comenta este bloque)
+            $q->whereHas('usuario', function ($u) {
+                $u->where('cancelada', false);
+            });
+
+            $matches = $q->get();
+
+            foreach ($matches as $wish) {
+                $user = $wish->usuario;
+                if (!$user || empty($user->email)) {
+                    continue;
+                }
+
+                // ✅ Ahora el Mailable acepta 5 argumentos (incluye userName)
+                Mail::to($user->email)->queue(
+                    new WishlistPriceAlertMail(
+                        $user->name ?? 'usuario',
+                        (string) $cardName,
+                        (float) $precioPublicacion,
+                        (string) $sellerName,
+                        (string) $url
+                    )
+                );
+            }
+        } catch (\Throwable $e) {
+            // No rompemos la creación de la publicación si falla el email
+            Log::error('Error enviando alertas de wishlist: ' . $e->getMessage(), [
+                'en_venta_id' => $publicacion->id ?? null,
+            ]);
+        }
+
+        // Respuesta normal
         $tcgdex = new TCGdexService();
 
         return response()->json([
@@ -147,7 +207,6 @@ class EnVentaController extends Controller
         }
 
         $data = $request->validate([
-            // 🔽 antes: min:0.1
             'precio' => 'sometimes|numeric|min:0.01',
             'estado' => 'sometimes|in:activa,vendida,cancelada',
             'notas'  => 'sometimes|nullable|string',
@@ -201,12 +260,10 @@ class EnVentaController extends Controller
         $entrada = $coleccionQuery->first();
 
         if ($entrada) {
-            // Sumar 1 a la cantidad
             $coleccionQuery->update([
                 'cantidad' => $entrada->cantidad + 1,
             ]);
         } else {
-            // Crear nueva entrada con cantidad = 1
             Coleccion::create([
                 'id_usuario'        => $usuarioId,
                 'id_carta'          => $publicacion->id_carta,
