@@ -61,7 +61,12 @@ class AuthController extends Controller
 
         if ($user && $user->cancelada) {
             Auth::logout();
-            return response(['error' => 'Tu cuenta está cancelada. Contacta con el administrador.'], 403);
+            return response()->json([
+                'errors' => [
+                    'account' => ['Tu cuenta está cancelada. Contacta con el administrador.
+                    agdls03@gmail.com'],
+                ],
+            ], 403);
         }
 
         $newToken = $user->createToken('main');

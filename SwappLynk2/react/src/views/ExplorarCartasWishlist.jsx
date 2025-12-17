@@ -9,13 +9,8 @@ export default function ExplorarCartasWishlist() {
   const [cartas, setCartas] = useState([]);
   const [loading, setLoading] = useState(false);
   const [sets, setSets] = useState([]);
-  const [filtros, setFiltros] = useState({
-    name: "",
-    types: "",
-    set: "",
-  });
+  const [filtros, setFiltros] = useState({ name: "", types: "", set: "" });
 
-  // Estado del modal de WISHLIST
   const [modalAbierto, setModalAbierto] = useState(false);
   const [cartaSeleccionada, setCartaSeleccionada] = useState(null);
 
@@ -28,18 +23,17 @@ export default function ExplorarCartasWishlist() {
   const cargarSets = () => {
     axiosClient
       .get("/cartas/sets")
-      .then((res) => {
-        console.log("Sets cargados (wishlist):", res.data);
-        setSets(res.data);
-      })
-      .catch((err) => console.error("Error cargando sets:", err));
+      .then((res) => setSets(res.data || []))
+      .catch((err) => {
+        console.error("Error cargando sets:", err);
+        setSets([]);
+      });
   };
 
   const buscarCartas = (nuevosFiltros = filtros) => {
     setLoading(true);
 
     const params = new URLSearchParams();
-
     if (nuevosFiltros.name) params.append("name", nuevosFiltros.name);
     if (nuevosFiltros.types) params.append("types", nuevosFiltros.types);
     if (nuevosFiltros.set) params.append("set", nuevosFiltros.set);
@@ -47,8 +41,6 @@ export default function ExplorarCartasWishlist() {
     const url = params.toString()
       ? `/cartas/search/advanced?${params.toString()}`
       : `/cartas/search/advanced`;
-
-    console.log("Llamando a (wishlist):", url);
 
     axiosClient
       .get(url)
@@ -70,39 +62,26 @@ export default function ExplorarCartasWishlist() {
 
             if (setObj && typeof setObj === "object") {
               const posibleId =
-                setObj.id ||
-                setObj.code ||
-                setObj.localId ||
-                setObj.setId ||
-                setObj.set;
-              if (posibleId) {
-                return String(posibleId).toLowerCase() === setIdFiltro;
-              }
+                setObj.id || setObj.code || setObj.localId || setObj.setId || setObj.set;
+              if (posibleId) return String(posibleId).toLowerCase() === setIdFiltro;
             }
 
-            if (typeof setObj === "string") {
-              return setObj.toLowerCase() === setIdFiltro;
-            }
+            if (typeof setObj === "string") return setObj.toLowerCase() === setIdFiltro;
 
             const tcgId = tcg.id || carta.id_carta || carta.id;
             if (tcgId) {
               const [prefijo] = String(tcgId).split("-");
-              if (prefijo) {
-                return prefijo.toLowerCase() === setIdFiltro;
-              }
+              if (prefijo) return prefijo.toLowerCase() === setIdFiltro;
             }
 
             return false;
           });
         }
 
-        console.log(
-          `[Wishlist] Cartas cargadas: ${res.data.length}, tras filtro de set: ${data.length}`
-        );
         setCartas(data);
       })
       .catch((err) => {
-        console.error("Error cargando cartas (wishlist):", err);
+        console.error("Error cargando cartas:", err);
         setCartas([]);
       })
       .finally(() => setLoading(false));
@@ -113,7 +92,6 @@ export default function ExplorarCartasWishlist() {
     buscarCartas(nuevosFiltros);
   };
 
-  // Click en carta → modal de WISHLIST
   const handleSeleccionCarta = (carta) => {
     setCartaSeleccionada(carta);
     setModalAbierto(true);
@@ -125,7 +103,6 @@ export default function ExplorarCartasWishlist() {
   };
 
   const handleConfirmWishlist = () => {
-    // El propio ModalWishlistCarta hace el POST a /wishlist
     cerrarModal();
   };
 
@@ -140,9 +117,7 @@ export default function ExplorarCartasWishlist() {
           </div>
         ) : cartas.length === 0 ? (
           <div className="text-center py-12">
-            <p className="text-gray-500 text-lg">
-              📭 No se encontraron cartas
-            </p>
+            <p className="text-gray-500 text-lg">📭 No se encontraron cartas</p>
           </div>
         ) : (
           <>
@@ -151,17 +126,14 @@ export default function ExplorarCartasWishlist() {
               <span className="font-bold text-red-600">{cartas.length}</span>{" "}
               cartas
             </p>
-            <CardGridSelectable
-              cartas={cartas}
-              onSelectCarta={handleSeleccionCarta}
-              sets={sets}
-            />
+            <CardGridSelectable cartas={cartas} onSelectCarta={handleSeleccionCarta} sets={sets} />
           </>
         )}
 
         {modalAbierto && cartaSeleccionada && (
           <ModalWishlistCarta
             carta={cartaSeleccionada}
+            sets={sets}
             onConfirm={handleConfirmWishlist}
             onCancel={cerrarModal}
           />

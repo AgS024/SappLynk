@@ -1,49 +1,115 @@
-// react/src/components/ModalWishlistCarta.jsx
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import axiosClient from "../axios.js";
 import { XMarkIcon } from "@heroicons/react/24/outline";
 
-export default function ModalWishlistCarta({ carta, onConfirm, onCancel }) {
-  const [precioAviso, setPrecioAviso] = useState("");
-  const [loading, setLoading] = useState(false);
+function buildSetIndex(sets) {
+  const map = new Map();
+  if (!Array.isArray(sets)) return map;
 
-  const tcg = carta.tcgdex || carta.data || carta.carta || carta;
+  for (const s of sets) {
+    if (s?.id) map.set(String(s.id).toLowerCase(), s);
+    if (s?.localId) map.set(String(s.localId).toLowerCase(), s);
+    if (s?.code) map.set(String(s.code).toLowerCase(), s);
+  }
+  return map;
+}
 
-  const cardId = carta.id_carta || carta.id || tcg.id;
-  const cardName = tcg.name || carta.name || "Carta sin nombre";
+function resolveSetName(carta, setIndex) {
+  const tcg = carta?.tcgdex || carta?.data || carta?.carta || carta;
 
-  // Nombre del set (misma lógica que en ModalAñadirCarta pero simplificada)
-  let setName = "Set desconocido";
+  const nameFromIndexKey = (raw) => {
+    if (!raw || !setIndex?.size) return null;
+    const key = String(raw).toLowerCase();
+    const found = setIndex.get(key);
+    if (!found) return null;
+
+    if (typeof found.name === "string" && found.name.trim()) return found.name;
+
+    if (found.name && typeof found.name === "object") {
+      return (
+        found.name.es ||
+        found.name.en ||
+        Object.values(found.name).find((x) => typeof x === "string" && x.trim()) ||
+        null
+      );
+    }
+    return null;
+  };
+
   const setObj =
-    tcg.set ||
-    carta.tcgdex?.set ||
-    carta.data?.set ||
-    carta.carta?.set ||
-    carta.set;
+    tcg?.set ||
+    carta?.tcgdex?.set ||
+    carta?.data?.set ||
+    carta?.carta?.set ||
+    carta?.set;
 
-  if (setObj) {
-    if (typeof setObj.name === "string") {
-      setName = setObj.name;
-    } else if (typeof setObj.name === "object") {
-      setName = setObj.name.es || setObj.name.en || "Set desconocido";
+  if (setObj && typeof setObj === "object") {
+    if (typeof setObj.name === "string" && setObj.name.trim()) return setObj.name;
+    if (setObj.name && typeof setObj.name === "object") {
+      const v =
+        setObj.name.es ||
+        setObj.name.en ||
+        Object.values(setObj.name).find((x) => typeof x === "string" && x.trim());
+      if (v) return v;
+    }
+
+    const possibleId = setObj.id || setObj.code || setObj.localId || setObj.setId || setObj.set;
+    const fromIndex = nameFromIndexKey(possibleId);
+    if (fromIndex) return fromIndex;
+  }
+
+  if (typeof setObj === "string") {
+    const fromIndex = nameFromIndexKey(setObj);
+    return fromIndex || setObj;
+  }
+
+  const rawId = tcg?.id || carta?.id || carta?.id_carta;
+  if (rawId) {
+    const idStr = String(rawId).toLowerCase();
+
+    const byDash = idStr.split("-")[0];
+    const fromDash = nameFromIndexKey(byDash);
+    if (fromDash) return fromDash;
+
+    const byColon = idStr.split(":")[0];
+    const fromColon = nameFromIndexKey(byColon);
+    if (fromColon) return fromColon;
+
+    const m = idStr.match(/^([a-z0-9]+)/);
+    if (m?.[1]) {
+      const fromRegex = nameFromIndexKey(m[1]);
+      if (fromRegex) return fromRegex;
     }
   }
 
+  return "Set desconocido";
+}
+
+export default function ModalWishlistCarta({ carta, sets = [], onConfirm, onCancel }) {
+  const [precioAviso, setPrecioAviso] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  const setIndex = useMemo(() => buildSetIndex(sets), [sets]);
+
+  const tcg = carta?.tcgdex || carta?.data || carta?.carta || carta;
+
+  const cardId = carta?.id_carta || carta?.id || tcg?.id;
+  const cardName = tcg?.name || carta?.name || "Carta sin nombre";
+  const setName = resolveSetName(carta, setIndex);
+
   const fuentesImagen = [
-    carta.image?.hires,
-    carta.image?.normal,
-    tcg.image?.hires,
-    tcg.image?.normal,
-    tcg.images?.large,
-    tcg.images?.small,
-    tcg.imageUrlHiRes,
-    tcg.imageUrl,
-    typeof tcg.image === "string" ? tcg.image : null,
+    carta?.image?.hires,
+    carta?.image?.normal,
+    tcg?.image?.hires,
+    tcg?.image?.normal,
+    tcg?.images?.large,
+    tcg?.images?.small,
+    tcg?.imageUrlHiRes,
+    tcg?.imageUrl,
+    typeof tcg?.image === "string" ? tcg.image : null,
   ].filter(Boolean);
 
-  const imageUrl =
-    fuentesImagen[0] ||
-    "https://via.placeholder.com/150x200?text=Sin+imagen";
+  const imageUrl = fuentesImagen[0] || "https://via.placeholder.com/150x200?text=Sin+imagen";
 
   const handleConfirm = async () => {
     if (!cardId) {
@@ -64,7 +130,7 @@ export default function ModalWishlistCarta({ carta, onConfirm, onCancel }) {
         precio_aviso: valor,
       });
 
-      onConfirm({ precio_aviso: valor });
+      onConfirm?.({ precio_aviso: valor });
     } catch (err) {
       console.error("Error añadiendo a wishlist:", err);
       alert("Error al añadir la carta a la wishlist");
@@ -77,13 +143,8 @@ export default function ModalWishlistCarta({ carta, onConfirm, onCancel }) {
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
         <div className="flex justify-between items-center p-6 border-b-2 border-gray-200">
-          <h2 className="text-2xl font-bold text-gray-900">
-            Añadir a Wishlist
-          </h2>
-          <button
-            onClick={onCancel}
-            className="text-gray-500 hover:text-gray-700"
-          >
+          <h2 className="text-2xl font-bold text-gray-900">Añadir a Wishlist</h2>
+          <button onClick={onCancel} className="text-gray-500 hover:text-gray-700">
             <XMarkIcon className="h-6 w-6" />
           </button>
         </div>
@@ -100,8 +161,7 @@ export default function ModalWishlistCarta({ carta, onConfirm, onCancel }) {
               alt={cardName}
               className="h-40 rounded-lg shadow"
               onError={(e) => {
-                e.currentTarget.src =
-                  "https://via.placeholder.com/150x200?text=Sin+imagen";
+                e.currentTarget.src = "https://via.placeholder.com/150x200?text=Sin+imagen";
               }}
             />
           </div>
@@ -119,10 +179,6 @@ export default function ModalWishlistCarta({ carta, onConfirm, onCancel }) {
               placeholder="Ej: 5.00"
               className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:border-red-600 focus:outline-none"
             />
-            <p className="mt-1 text-xs text-gray-500">
-              Te avisaremos cuando haya cartas en venta por debajo de este
-              precio (lógica de aviso la puedes añadir más adelante).
-            </p>
           </div>
         </div>
 

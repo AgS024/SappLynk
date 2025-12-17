@@ -21,12 +21,26 @@ import axiosClient from "../axios";
 import logo from "../assets/image_copy.png";
 
 const navigation = [
-  { name: "Inicio", to: "/", icon: null },
-  { name: "Marketplace", to: "/marketplace", icon: ShoppingBagIcon },
-  { name: "Mi Colección", to: "/coleccion", icon: BookmarkIcon },
-  { name: "Wishlist", to: "/wishlist", icon: SparklesIcon },
-  // ✅ NUEVO: menú para mis cartas en venta
-  { name: "Mis cartas en venta", to: "/mis-cartas-en-venta", icon: ShoppingBagIcon },
+  {
+    name: "Marketplace",
+    to: "/marketplace",
+    icon: ShoppingBagIcon,
+  },
+  {
+    name: "Mi Colección",
+    to: "/coleccion",
+    icon: BookmarkIcon,
+  },
+  {
+    name: "Wishlist",
+    to: "/wishlist",
+    icon: SparklesIcon,
+  },
+  {
+    name: "Mis cartas en venta",
+    to: "/mis-cartas-en-venta",
+    icon: ShoppingBagIcon,
+  },
 ];
 
 function classNames(...classes) {
@@ -34,26 +48,20 @@ function classNames(...classes) {
 }
 
 export default function DefaultLayout() {
-  const {
-    currentUser,
-    userToken,
-    setCurrentUser,
-    setUserToken,
-    isAdmin,
-  } = useStateContext();
+  const { currentUser, userToken, setCurrentUser, setUserToken, isAdmin } =
+    useStateContext();
 
-  // 🔐 Si no hay token → login
   if (!userToken) {
     return <Navigate to="/login" />;
   }
 
-  // 👑 Si ES admin → que NO use este layout, lo mandamos al panel de admin
   if (isAdmin) {
     return <Navigate to="/admin" />;
   }
 
   const logout = (ev) => {
     ev.preventDefault();
+
     axiosClient.post("/logout").then(() => {
       setCurrentUser({});
       setUserToken(null);
@@ -67,8 +75,11 @@ export default function DefaultLayout() {
           <div className="flex h-16 items-center justify-between">
             <div className="flex items-center">
               <div className="shrink-0">
-                <img alt="Logo" src={logo} className="h-12 w-17" />
+                <NavLink to="/marketplace" className="inline-flex items-center">
+                  <img alt="Logo" src={logo} className="h-12 w-17" />
+                </NavLink>
               </div>
+
               <div className="hidden md:block">
                 <div className="ml-10 flex items-baseline space-x-4">
                   {navigation.map((item) => (
@@ -112,6 +123,7 @@ export default function DefaultLayout() {
                         Mi Perfil
                       </NavLink>
                     </MenuItem>
+
                     <MenuItem>
                       <NavLink
                         to="/mis-ventas"
@@ -120,6 +132,7 @@ export default function DefaultLayout() {
                         Mis Compras
                       </NavLink>
                     </MenuItem>
+
                     <MenuItem>
                       <a
                         href="#"
