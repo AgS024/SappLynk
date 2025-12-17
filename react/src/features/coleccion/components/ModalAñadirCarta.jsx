@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import axiosClient from "../axios.js";
+import axiosClient from "../../../axios.js";
 import { XMarkIcon } from "@heroicons/react/24/outline";
 
 export default function ModalAñadirCarta({ carta, sets = [], onConfirm, onCancel }) {
@@ -60,9 +60,15 @@ export default function ModalAñadirCarta({ carta, sets = [], onConfirm, onCance
     if (setObj && typeof setObj === "object") {
       if (typeof setObj.name === "string") return setObj.name;
       if (setObj.name && typeof setObj.name === "object") {
-        return setObj.name.es || setObj.name.en || Object.values(setObj.name)[0] || "Set desconocido";
+        return (
+          setObj.name.es ||
+          setObj.name.en ||
+          Object.values(setObj.name)[0] ||
+          "Set desconocido"
+        );
       }
-      const possibleId = setObj.id || setObj.code || setObj.localId || setObj.setId || setObj.set;
+      const possibleId =
+        setObj.id || setObj.code || setObj.localId || setObj.setId || setObj.set;
       const fromId = findSetByKey(possibleId);
       if (fromId) return fromId;
     }

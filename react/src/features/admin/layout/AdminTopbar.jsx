@@ -1,9 +1,8 @@
-// react/src/components/admin/AdminTopbar.jsx
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeftOnRectangleIcon } from "@heroicons/react/24/outline";
-import { useStateContext } from "../../Contexts/ContextProvider.jsx";
-import axiosClient from "../../axios.js";
+import { useStateContext } from "../../../Contexts/ContextProvider.jsx";
+import axiosClient from "../../../axios.js";
 
 export default function AdminTopbar({ title }) {
   const navigate = useNavigate();
@@ -40,27 +39,20 @@ export default function AdminTopbar({ title }) {
       </div>
 
       <div className="flex items-center gap-4">
-        {/* Información del admin */}
         <div className="flex items-center gap-3">
           <div className="text-right">
-            <p className="text-sm font-semibold text-gray-900">
-              {nombre}
-            </p>
+            <p className="text-sm font-semibold text-gray-900">{nombre}</p>
             <p className="text-xs text-gray-500">Administrador</p>
           </div>
           <div className="relative h-9 w-9">
-            {/* mini pokéball avatar */}
             <div className="absolute inset-0 rounded-full bg-white border-2 border-black" />
             <div className="absolute inset-x-0 top-0 h-1/2 bg-red-600 rounded-t-full border-b-2 border-black" />
             <div className="absolute inset-0 flex items-center justify-center">
-              <span className="text-xs font-extrabold text-black">
-                {inicial}
-              </span>
+              <span className="text-xs font-extrabold text-black">{inicial}</span>
             </div>
           </div>
         </div>
 
-        {/* Botón salir */}
         <button
           type="button"
           onClick={handleLogout}

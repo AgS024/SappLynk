@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import axiosClient from "../axios.js";
+import axiosClient from "../../../axios.js";
 
 function buildSetIndex(sets) {
   const map = new Map();
@@ -88,9 +88,7 @@ function getCardName(carta) {
 
 export default function CardGridSelectable({ cartas, onSelectCarta, sets }) {
   const [paginaActual, setPaginaActual] = useState(1);
-
   const setIndex = useMemo(() => buildSetIndex(sets), [sets]);
-
   const [setCache, setSetCache] = useState({});
 
   const cartasPorPagina = 20;
@@ -132,7 +130,7 @@ export default function CardGridSelectable({ cartas, onSelectCarta, sets }) {
             const setName = extractSetNameFromCardObject(full, setIndex);
             if (setName) results[id] = setName;
           } catch {
-            // si falla, simplemente no añadimos nada al caché
+            // nada
           }
         })
       );
@@ -170,8 +168,7 @@ export default function CardGridSelectable({ cartas, onSelectCarta, sets }) {
           const setName = resolveSetName(carta);
 
           const key =
-            getCardId(carta) ||
-            `${cartaName}-${Math.random().toString(36).slice(2)}`;
+            getCardId(carta) || `${cartaName}-${Math.random().toString(36).slice(2)}`;
 
           return (
             <div
@@ -194,9 +191,7 @@ export default function CardGridSelectable({ cartas, onSelectCarta, sets }) {
 
               <div className="p-4 flex-1 flex flex-col justify-between bg-white transition-colors duration-200 group-hover:bg-red-100">
                 <div>
-                  <h3 className="font-bold text-sm truncate text-gray-900">
-                    {cartaName}
-                  </h3>
+                  <h3 className="font-bold text-sm truncate text-gray-900">{cartaName}</h3>
                   <p className="text-gray-600 text-xs mt-1">{setName}</p>
                 </div>
               </div>

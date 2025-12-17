@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import axiosClient from "../../axios.js";
-import AdminTopbar from "../../components/admin/AdminTopbar.jsx";
+import AdminTopbar from "../../features/admin/layout/AdminTopbar.jsx";
 
 export default function AdminUsuarios() {
   const [usuarios, setUsuarios] = useState([]);

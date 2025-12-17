@@ -21,7 +21,6 @@ export default function TButton({
     "transition-colors",
   ];
 
-  // Estilos según si es link o botón normal
   if (link) {
     switch (color) {
       case "indigo":
@@ -38,51 +37,27 @@ export default function TButton({
     classes.push("text-white", "focus:ring-2", "focus:ring-offset-2");
     switch (color) {
       case "indigo":
-        classes.push(
-          "bg-indigo-600",
-          "hover:bg-indigo-700",
-          "focus:ring-indigo-500"
-        );
+        classes.push("bg-indigo-600", "hover:bg-indigo-700", "focus:ring-indigo-500");
         break;
       case "red":
-        classes.push(
-          "bg-red-600",
-          "hover:bg-red-700",
-          "focus:ring-red-500"
-        );
+        classes.push("bg-red-600", "hover:bg-red-700", "focus:ring-red-500");
         break;
       case "green":
-        classes.push(
-          "bg-emerald-500",
-          "hover:bg-emerald-600",
-          "focus:ring-emerald-400"
-        );
+        classes.push("bg-emerald-500", "hover:bg-emerald-600", "focus:ring-emerald-400");
         break;
     }
   }
 
-  // Tamaño: círculo o normal
   if (circle) {
-    classes.push(
-      "h-8",
-      "w-8",
-      "items-center",
-      "justify-center",
-      "rounded-full"
-    );
+    classes.push("h-8", "w-8", "items-center", "justify-center", "rounded-full");
   } else {
-    // corregido: sin px duplicados
     classes.push("px-4", "py-2", "rounded-md");
   }
 
-  // Estilos extra desde fuera
-  if (className) {
-    classes.push(className);
-  }
+  if (className) classes.push(className);
 
   const finalClasses = classes.join(" ");
 
-  // Renderizado según props (solo 1 tipo de elemento)
   if (href) {
     return (
       <a href={href} className={finalClasses} target={target}>

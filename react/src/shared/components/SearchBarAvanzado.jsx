@@ -8,20 +8,14 @@ export default function SearchBarAvanzado({ onSearch, sets = [] }) {
 
   const handleSearch = (e) => {
     e.preventDefault();
-
     const filtros = {};
-
-    // Aquí construyo el objeto de filtros con las mismas claves que usa el backend.
-    // Si un filtro está vacío, directamente no lo envío.
     if (query.trim()) filtros.name = query.trim();
     if (filterType) filtros.types = filterType;
     if (filterSet) filtros.set = filterSet;
-
     onSearch(filtros);
   };
 
   const handleReset = () => {
-    // Limpio el estado interno del buscador y vuelvo a pedir resultados sin filtros.
     setQuery("");
     setFilterType("");
     setFilterSet("");
@@ -60,9 +54,7 @@ export default function SearchBarAvanzado({ onSearch, sets = [] }) {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Tipo
-            </label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Tipo</label>
             <select
               value={filterType}
               onChange={(e) => setFilterType(e.target.value)}

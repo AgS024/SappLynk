@@ -1,6 +1,6 @@
 // react/src/views/admin/AdminDashboard.jsx
 import { useEffect, useState } from "react";
-import AdminTopbar from "../../components/admin/AdminTopbar.jsx";
+import AdminTopbar from "../../features/admin/layout/AdminTopbar.jsx";
 import axiosClient from "../../axios.js";
 
 export default function AdminDashboard() {

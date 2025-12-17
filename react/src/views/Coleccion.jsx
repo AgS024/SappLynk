@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import PageComponent from "../components/PageComponent.jsx";
+import PageComponent from "../shared/components/PageComponent.jsx";
 import axiosClient from "../axios.js";
-import CartaListItem from "../components/CartaListItem.jsx";
-import TButton from "../components/core/TButton.jsx";
+import CartaListItem from "../features/coleccion/components/CartaListItem.jsx";
+import TButton from "../shared/components/TButton.jsx";
 import { SparklesIcon } from "@heroicons/react/24/solid";
 
 export default function Coleccion() {

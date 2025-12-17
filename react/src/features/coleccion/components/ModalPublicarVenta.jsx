@@ -38,30 +38,24 @@ const ModalPublicarVenta = ({ copia, carta, onConfirm, onCancel }) => {
   return (
     <div className="fixed inset-0 z-50 bg-black bg-opacity-50 flex items-center justify-center p-4">
       <div className="bg-white rounded-lg shadow-xl w-full max-w-md">
-        {/* Header */}
         <div className="flex justify-between items-center p-4 border-b">
           <h2 className="text-lg font-bold text-gray-900">
             Publicar carta en venta
           </h2>
-          <button
-            className="text-gray-500 hover:text-gray-700"
-            onClick={onCancel}
-          >
+          <button className="text-gray-500 hover:text-gray-700" onClick={onCancel}>
             <XMarkIcon className="h-6 w-6" />
           </button>
         </div>
 
-        {/* Contenido */}
         <div className="p-4 space-y-4">
           <div className="bg-gray-50 p-3 rounded">
             <p className="font-semibold text-gray-900">{nombreCarta}</p>
             <p className="text-sm text-gray-600">
-              Grado:{" "}
-              {copia?.grado?.nombre || `Grado ${copia?.id_grado || "?"}`}
+              Grado: {copia?.grado?.nombre || `Grado ${copia?.id_grado || "?"}`}
             </p>
             <p className="text-sm text-gray-600">
-              Tienes: <span className="font-semibold">{maxCantidad}</span>{" "}
-              copias en colección
+              Tienes: <span className="font-semibold">{maxCantidad}</span> copias
+              en colección
             </p>
           </div>
 
@@ -107,7 +101,6 @@ const ModalPublicarVenta = ({ copia, carta, onConfirm, onCancel }) => {
           </div>
         </div>
 
-        {/* Footer */}
         <div className="p-4 border-t flex gap-3">
           <button
             onClick={onCancel}

@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
-import PageComponent from "../components/PageComponent.jsx";
+import PageComponent from "../shared/components/PageComponent.jsx";
 import axiosClient from "../axios.js";
-import CardGrid from "../components/CardGrid.jsx";
-import SearchBarAvanzado from "../components/SearchBarAvanzado.jsx";
+import CardGrid from "../features/marketplace/components/CardGrid.jsx";
+import SearchBarAvanzado from "../shared/components/SearchBarAvanzado.jsx";
 import { useStateContext } from "../Contexts/ContextProvider.jsx";
 
 export default function Marketplace() {

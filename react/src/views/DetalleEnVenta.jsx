@@ -1,7 +1,7 @@
 // react/src/views/DetalleEnVenta.jsx
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import PageComponent from "../components/PageComponent.jsx";
+import PageComponent from "../shared/components/PageComponent.jsx";
 import axiosClient from "../axios.js";
 
 export default function DetalleEnVenta() {

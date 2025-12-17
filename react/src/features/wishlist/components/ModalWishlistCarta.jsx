@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import axiosClient from "../axios.js";
+import axiosClient from "../../../axios.js";
 import { XMarkIcon } from "@heroicons/react/24/outline";
 
 function buildSetIndex(sets) {
@@ -53,7 +53,8 @@ function resolveSetName(carta, setIndex) {
       if (v) return v;
     }
 
-    const possibleId = setObj.id || setObj.code || setObj.localId || setObj.setId || setObj.set;
+    const possibleId =
+      setObj.id || setObj.code || setObj.localId || setObj.setId || setObj.set;
     const fromIndex = nameFromIndexKey(possibleId);
     if (fromIndex) return fromIndex;
   }
@@ -161,7 +162,8 @@ export default function ModalWishlistCarta({ carta, sets = [], onConfirm, onCanc
               alt={cardName}
               className="h-40 rounded-lg shadow"
               onError={(e) => {
-                e.currentTarget.src = "https://via.placeholder.com/150x200?text=Sin+imagen";
+                e.currentTarget.src =
+                  "https://via.placeholder.com/150x200?text=Sin+imagen";
               }}
             />
           </div>

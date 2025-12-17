@@ -1,6 +1,6 @@
 // react/src/views/Perfil.jsx
 import { useEffect, useState } from "react";
-import PageComponent from "../components/PageComponent.jsx";
+import PageComponent from "../shared/components/PageComponent.jsx";
 import axiosClient from "../axios.js";
 import { UserIcon, StarIcon } from "@heroicons/react/24/solid";
 import { useStateContext } from "../Contexts/ContextProvider.jsx";

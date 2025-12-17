@@ -1,4 +1,3 @@
-// react/src/components/CardGrid.jsx
 import { Link } from "react-router-dom";
 import { StarIcon } from "@heroicons/react/24/solid";
 
@@ -14,7 +13,6 @@ export default function CardGrid({ cartas, marketplace = false }) {
   return (
     <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
       {cartas.map((carta) => {
-        // En el marketplace, 'carta' es una publicación en_venta con campo tcgdex
         const tcg = carta.tcgdex || carta;
 
         const imageUrl =
@@ -28,7 +26,6 @@ export default function CardGrid({ cartas, marketplace = false }) {
         const cartaName = tcg.name || carta.name || "Carta sin nombre";
         const cartaId = tcg.id || carta.id_carta || carta.id;
 
-        // Set
         let setName = "Set desconocido";
         const setObj = tcg.set || carta.set;
 
@@ -42,7 +39,6 @@ export default function CardGrid({ cartas, marketplace = false }) {
 
         const precio = marketplace ? carta.precio : null;
 
-        // ===== Datos específicos del marketplace: vendedor, rating, grado =====
         let vendedorNombre = null;
         let valoracionMedia5 = null;
         let gradoTexto = null;
@@ -60,8 +56,8 @@ export default function CardGrid({ cartas, marketplace = false }) {
             const cantVal = Number(vendedor.cantidad_val ?? 0);
 
             if (cantVal > 0) {
-              const media10 = sumaVal / cantVal; // 0–10
-              valoracionMedia5 = media10 / 2; // 0–5
+              const media10 = sumaVal / cantVal;
+              valoracionMedia5 = media10 / 2;
             }
           } else {
             vendedorNombre = `Usuario #${carta.id_usuario}`;
@@ -72,19 +68,14 @@ export default function CardGrid({ cartas, marketplace = false }) {
             grado?.nombre || `Grado ${carta.id_grado ?? carta.id_grado ?? "?"}`;
         }
 
-        // ✅ clave y destino según contexto
         const key = marketplace ? `enventa-${carta.id}` : `carta-${cartaId}`;
-        const linkTo = marketplace
-          ? `/marketplace/${carta.id}` // id numérico de en_venta
-          : `/carta/${cartaId}`; // id de TCGdex
+        const linkTo = marketplace ? `/marketplace/${carta.id}` : `/carta/${cartaId}`;
 
         return (
           <Link key={key} to={linkTo} className="group">
             <div className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-xl transition-shadow duration-300 h-full flex flex-col relative">
-              {/* 🔥 Overlay rojo suave al hacer hover */}
               <div className="absolute inset-0 bg-red-500 opacity-0 group-hover:opacity-10 transition-opacity pointer-events-none" />
 
-              {/* Imagen */}
               <div className="relative bg-gray-100 h-72 flex items-center justify-center">
                 <img
                   src={imageUrl}
@@ -97,23 +88,17 @@ export default function CardGrid({ cartas, marketplace = false }) {
                 />
               </div>
 
-              {/* Información */}
               <div className="p-4 flex-1 flex flex-col justify-between relative z-10">
                 <div>
-                  <h3 className="font-bold text-sm truncate text-gray-900">
-                    {cartaName}
-                  </h3>
+                  <h3 className="font-bold text-sm truncate text-gray-900">{cartaName}</h3>
                   <p className="text-gray-600 text-xs mt-1">{setName}</p>
                 </div>
 
-                {/* Bloque de info intermedia */}
                 {!marketplace ? (
-                  // ===== Vista normal (no marketplace): rareza + HP =====
                   <div className="mt-3 space-y-1 text-xs text-gray-600">
                     {tcg.rarity && (
                       <p>
-                        <span className="font-semibold">Rareza:</span>{" "}
-                        {tcg.rarity}
+                        <span className="font-semibold">Rareza:</span> {tcg.rarity}
                       </p>
                     )}
                     {tcg.hp && (
@@ -123,7 +108,6 @@ export default function CardGrid({ cartas, marketplace = false }) {
                     )}
                   </div>
                 ) : (
-                  // ===== En el marketplace: vendedor, rating medio y grado =====
                   <div className="mt-3 space-y-1 text-xs text-gray-600">
                     <p>
                       <span className="font-semibold">Vendedor:</span>{" "}
@@ -142,15 +126,12 @@ export default function CardGrid({ cartas, marketplace = false }) {
                   </div>
                 )}
 
-                {/* Indicador si está en venta + precio */}
                 {marketplace && (
                   <div className="mt-3 pt-3 border-t border-gray-200">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-1">
                         <StarIcon className="h-4 w-4 text-yellow-500" />
-                        <span className="text-green-600 font-bold text-xs">
-                          En venta
-                        </span>
+                        <span className="text-green-600 font-bold text-xs">En venta</span>
                       </div>
                       {precio !== null && (
                         <span className="text-sm font-bold text-red-600">

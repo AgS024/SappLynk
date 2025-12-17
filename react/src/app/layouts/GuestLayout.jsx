@@ -1,17 +1,14 @@
 import { Outlet, Navigate } from "react-router-dom";
-import { LockClosedIcon } from "@heroicons/react/24/solid";
-import { useStateContext } from "../Contexts/ContextProvider";
+import { useStateContext } from "../../Contexts/ContextProvider";
 
 export default function GuestLayout() {
   const { userToken, currentUser } = useStateContext();
 
   if (userToken) {
-    // 👑 Si ya está logueado y es admin → panel admin
     if (currentUser?.admin) {
       return <Navigate to="/admin" />;
     }
-    // 👤 Usuario normal → dashboard
-    return <Navigate to="/dashboard" />;
+    return <Navigate to="/marketplace" />;
   }
 
   return (

@@ -1,6 +1,6 @@
 import { createBrowserRouter, Navigate } from "react-router-dom";
-import DefaultLayout from "./components/DefaultLayout.jsx";
-import GuestLayout from "./components/GuestLayout.jsx";
+import DefaultLayout from "./app/layouts/DefaultLayout.jsx";
+import GuestLayout from "./app/layouts/GuestLayout.jsx";
 
 import Login from "./views/Login.jsx";
 import Signup from "./views/Signup.jsx";
@@ -18,7 +18,7 @@ import CartaColeccionDetalle from "./views/CartaColeccionDetalle.jsx";
 import MisCartasEnVenta from "./views/MisCartasEnVenta.jsx";
 import DetalleEnVenta from "./views/DetalleEnVenta.jsx";
 
-import AdminLayout from "./components/admin/AdminLayout.jsx";
+import AdminLayout from "./features/admin/layout/AdminLayout.jsx";
 import AdminDashboard from "./views/admin/AdminDashboard.jsx";
 import AdminUsuarios from "./views/admin/AdminUsuarios.jsx";
 import AdminUsuarioDetalle from "./views/admin/AdminUsuarioDetalle.jsx";
@@ -30,7 +30,6 @@ const router = createBrowserRouter([
     element: <DefaultLayout />,
     children: [
       { index: true, element: <Navigate to="/marketplace" replace /> },
-
       { path: "/dashboard", element: <Navigate to="/marketplace" replace /> },
 
       { path: "/explorar-cartas", element: <ExplorarCartas /> },
@@ -49,7 +48,6 @@ const router = createBrowserRouter([
       { path: "/mis-cartas-en-venta", element: <MisCartasEnVenta /> },
 
       { path: "/perfil/:id", element: <Perfil /> },
-
       { path: "/carta/:id", element: <CartaDetalle /> },
     ],
   },

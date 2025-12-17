@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import PageComponent from "../components/PageComponent.jsx";
+import PageComponent from "../shared/components/PageComponent.jsx";
 import axiosClient from "../axios.js";
-import ModalPublicarVenta from "../components/ModalPublicarVenta.jsx";
+import ModalPublicarVenta from "../features/coleccion/components/ModalPublicarVenta.jsx";
 
 export default function CartaDetalle() {
   const { id } = useParams(); // id de la carta (ej: swsh1-1)

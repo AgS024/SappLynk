@@ -1,7 +1,7 @@
 // react/src/views/admin/AdminVentas.jsx
 import { useEffect, useState } from "react";
 import axiosClient from "../../axios.js";
-import AdminTopbar from "../../components/admin/AdminTopbar.jsx";
+import AdminTopbar from "../../features/admin/layout/AdminTopbar.jsx";
 import { Link } from "react-router-dom";
 
 // Estados fijos definidos en la tabla `estados`

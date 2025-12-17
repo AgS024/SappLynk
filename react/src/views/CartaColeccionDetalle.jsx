@@ -1,7 +1,7 @@
 // react/src/views/CartaColeccionDetalle.jsx
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import PageComponent from "../components/PageComponent.jsx";
+import PageComponent from "../shared/components/PageComponent.jsx";
 import axiosClient from "../axios.js";
 import { useStateContext } from "../Contexts/ContextProvider.jsx";
 

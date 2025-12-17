@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import axiosClient from "../../axios.js";
 import { ArrowLeftIcon } from "@heroicons/react/24/outline";
-import AdminTopbar from "../../components/admin/AdminTopbar.jsx";
+import AdminTopbar from "../../features/admin/layout/AdminTopbar.jsx";
 
 export default function AdminUsuarioDetalle() {
   const { id } = useParams(); 

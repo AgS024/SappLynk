@@ -7,9 +7,6 @@ export default function SearchBar({ onSearch }) {
 
   const handleSearch = (e) => {
     e.preventDefault();
-
-    // Este buscador es el “simple”. Mantengo el formato que usa (q/type),
-    // pero ahora type será uno de los tipos TCG en español.
     onSearch({ q: query, type: filterType });
   };
 

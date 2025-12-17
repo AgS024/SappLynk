@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
-import PageComponent from "../components/PageComponent.jsx";
+import PageComponent from "../shared/components/PageComponent.jsx";
 import axiosClient from "../axios.js";
-import CardGridSelectable from "../components/CardGridSelectable.jsx";
-import SearchBarAvanzado from "../components/SearchBarAvanzado.jsx";
-import ModalAñadirCarta from "../components/ModalAñadirCarta.jsx";
+import CardGridSelectable from "../features/coleccion/components/CardGridSelectable.jsx";
+import SearchBarAvanzado from "../shared/components/SearchBarAvanzado.jsx";
+import ModalAñadirCarta from "../features/coleccion/components/ModalAñadirCarta.jsx";
 
 export default function ExplorarCartas() {
   const [cartas, setCartas] = useState([]);

@@ -1,5 +1,3 @@
-// react/src/components/CartaWishlistItem.jsx
-
 export default function CartaWishlistItem({ item, onDelete }) {
   const tcg = item.tcgdex || item.data || item.carta || item;
 
@@ -33,10 +31,8 @@ export default function CartaWishlistItem({ item, onDelete }) {
 
   return (
     <div className="group bg-white rounded-lg shadow-md overflow-hidden hover:shadow-xl transition-all relative">
-      {/* Overlay rojo suave al hacer hover */}
       <div className="absolute inset-0 bg-red-500 opacity-0 group-hover:opacity-10 transition-opacity pointer-events-none"></div>
 
-      {/* Imagen */}
       <div className="relative overflow-hidden bg-gray-100 h-64 flex items-center justify-center">
         <img
           src={imageUrl}
@@ -50,11 +46,8 @@ export default function CartaWishlistItem({ item, onDelete }) {
         />
       </div>
 
-      {/* Información */}
       <div className="p-3 relative z-10">
-        <h3 className="font-bold text-sm truncate text-gray-900">
-          {cartaName}
-        </h3>
+        <h3 className="font-bold text-sm truncate text-gray-900">{cartaName}</h3>
         <p className="text-gray-600 text-xs mt-1">{setName}</p>
 
         <div className="mt-2 text-xs text-gray-600 space-y-1">

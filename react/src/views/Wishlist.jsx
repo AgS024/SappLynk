@@ -1,10 +1,10 @@
 import { useEffect, useState } from "react";
-import PageComponent from "../components/PageComponent.jsx";
+import PageComponent from "../shared/components/PageComponent.jsx";
 import axiosClient from "../axios.js";
 import { useStateContext } from "../Contexts/ContextProvider.jsx";
-import TButton from "../components/core/TButton.jsx";
+import TButton from "../shared/components/TButton.jsx";
 import { SparklesIcon } from "@heroicons/react/24/solid";
-import CartaWishlistItem from "../components/CartaWishlistItem.jsx";
+import CartaWishlistItem from "../features/wishlist/components/CartaWishlistItem.jsx";
 
 export default function Wishlist() {
   const [wishlist, setWishlist] = useState([]);

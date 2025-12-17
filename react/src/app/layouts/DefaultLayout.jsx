@@ -15,32 +15,16 @@ import {
   SparklesIcon,
 } from "@heroicons/react/24/outline";
 import { NavLink, Outlet, Navigate } from "react-router-dom";
-import { useStateContext } from "../Contexts/ContextProvider";
+import { useStateContext } from "../../Contexts/ContextProvider";
 import { UserIcon } from "@heroicons/react/24/solid";
-import axiosClient from "../axios";
-import logo from "../assets/image_copy.png";
+import axiosClient from "../../axios";
+import logo from "../../shared/assets/image_copy.png";
 
 const navigation = [
-  {
-    name: "Marketplace",
-    to: "/marketplace",
-    icon: ShoppingBagIcon,
-  },
-  {
-    name: "Mi Colección",
-    to: "/coleccion",
-    icon: BookmarkIcon,
-  },
-  {
-    name: "Wishlist",
-    to: "/wishlist",
-    icon: SparklesIcon,
-  },
-  {
-    name: "Mis cartas en venta",
-    to: "/mis-cartas-en-venta",
-    icon: ShoppingBagIcon,
-  },
+  { name: "Marketplace", to: "/marketplace", icon: ShoppingBagIcon },
+  { name: "Mi Colección", to: "/coleccion", icon: BookmarkIcon },
+  { name: "Wishlist", to: "/wishlist", icon: SparklesIcon },
+  { name: "Mis cartas en venta", to: "/mis-cartas-en-venta", icon: ShoppingBagIcon },
 ];
 
 function classNames(...classes) {
@@ -61,7 +45,6 @@ export default function DefaultLayout() {
 
   const logout = (ev) => {
     ev.preventDefault();
-
     axiosClient.post("/logout").then(() => {
       setCurrentUser({});
       setUserToken(null);
