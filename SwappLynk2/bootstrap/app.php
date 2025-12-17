@@ -13,9 +13,7 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware): void {
 
-        // ============================
-        // 🔐 ALIAS DE MIDDLEWARE
-        // ============================
+
 
         $middleware->alias([
             // Usamos directamente el middleware de Laravel para "auth"
@@ -25,9 +23,6 @@ return Application::configure(basePath: dirname(__DIR__))
             'admin' => \App\Http\Middleware\AdminMiddleware::class,
         ]);
 
-        // Si en el futuro quieres un middleware "guest", puedes crearlo
-        // y añadir aquí algo como:
-        // 'guest' => \App\Http\Middleware\RedirectIfAuthenticated::class,
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         //

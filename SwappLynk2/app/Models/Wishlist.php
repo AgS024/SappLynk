@@ -18,11 +18,7 @@ class Wishlist extends Model
         'precio_aviso' => 'decimal:2',
     ];
 
-    /**
-     * IMPORTANTE:
-     * Laravel NO soporta PK compuesta.
-     * Desactivamos completamente el uso de primaryKey y save().
-     */
+    
     public $incrementing = false;
     protected $primaryKey = null;
     public $timestamps = true;
@@ -43,3 +39,4 @@ class Wishlist extends Model
         return $this->belongsTo(Carta::class, 'id_carta');
     }
 }
+    

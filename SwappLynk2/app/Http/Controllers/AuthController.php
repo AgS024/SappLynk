@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers;
 
-Use App\Models\User;
 use App\Http\Requests\LoginRequest;
 use App\Http\Requests\SignupRequest;
 use Illuminate\Http\Request;
@@ -10,11 +9,13 @@ use Illuminate\Support\Facades\Auth;
 
 class AuthController extends Controller
 {
+    /**
+     * Registra un usuario y devuelve token de Sanctum.
+     */
     public function signup(SignupRequest $request)
     {
         $data = $request->validated();
-        
-        /** @var \App\Models\User $user */
+
         $user = \App\Models\User::create([
             'name'      => $data['name'],
             'email'     => $data['email'],
@@ -23,11 +24,14 @@ class AuthController extends Controller
             'provincia' => $data['province'],
             'ciudad'    => $data['city'],
             'cp'        => $data['postal_code'],
+            'admin'     => false,
+            'cancelada' => false,
         ]);
-        
-        /** @var \Laravel\Sanctum\NewAccessToken $newToken */
+
+        /** @var \App\Models\User $user */
         $newToken = $user->createToken('main');
         $token = $newToken->plainTextToken;
+
 
         return response([
             'user'  => $user,
@@ -35,6 +39,9 @@ class AuthController extends Controller
         ]);
     }
 
+    /**
+     * Inicia sesión. Si la cuenta está cancelada, se bloquea el login.
+     */
     public function login(LoginRequest $request)
     {
         $credentials = $request->validated();
@@ -42,17 +49,24 @@ class AuthController extends Controller
         unset($credentials['remember']);
 
         if (!Auth::attempt($credentials, $remember)) {
-            return response([
-                'error' => 'Las credenciales no son correctas'
+            return response()->json([
+                'errors' => [
+                    'credentials' => ['Email o contraseña incorrectos.'],
+                ],
             ], 422);
         }
-        
+
         /** @var \App\Models\User $user */
         $user = Auth::user();
-        
-        /** @var \Laravel\Sanctum\NewAccessToken $newToken */
+
+        if ($user && $user->cancelada) {
+            Auth::logout();
+            return response(['error' => 'Tu cuenta está cancelada. Contacta con el administrador.'], 403);
+        }
+
         $newToken = $user->createToken('main');
         $token = $newToken->plainTextToken;
+
 
         return response([
             'user'  => $user,
@@ -60,31 +74,28 @@ class AuthController extends Controller
         ]);
     }
 
+    /**
+     * Cierra sesión eliminando el token actual.
+     */
     public function logout(Request $request)
     {
-        /** @var \App\Models\User|null $user */
         $user = $request->user();
-        
-        /** @var \Laravel\Sanctum\PersonalAccessToken|null $token */
         $token = $user?->currentAccessToken();
         $token?->delete();
 
         return response([
-            'success' => true
+            'success' => true,
         ]);
     }
 
     /**
      * Devuelve el usuario autenticado.
-     * Sustituye al closure de /user que tenías en api.php
      */
     public function me(Request $request)
     {
-        /** @var \App\Models\User|null $user */
         $user = $request->user();
 
         if ($user) {
-            // opcional: si quieres incluir la valoración media calculada desde el modelo
             $user->valoracion_media = $user->valoracionMedia();
         }
 
@@ -96,7 +107,6 @@ class AuthController extends Controller
      */
     public function updateProfile(Request $request)
     {
-        /** @var \App\Models\User $user */
         $user = $request->user();
 
         $data = $request->validate([
