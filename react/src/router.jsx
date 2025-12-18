@@ -48,6 +48,7 @@ const router = createBrowserRouter([
       { path: "/mis-cartas-en-venta", element: <MisCartasEnVenta /> },
 
       { path: "/perfil/:id", element: <Perfil /> },
+
       { path: "/carta/:id", element: <CartaDetalle /> },
     ],
   },

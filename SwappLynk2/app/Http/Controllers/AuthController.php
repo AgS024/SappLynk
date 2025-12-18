@@ -9,13 +9,13 @@ use Illuminate\Support\Facades\Auth;
 
 class AuthController extends Controller
 {
-    /**
-     * Registra un usuario y devuelve token de Sanctum.
-     */
     public function signup(SignupRequest $request)
     {
+        // Validamos los datos con el FormRequest (aquí ya vienen limpios y con reglas aplicadas)
         $data = $request->validated();
 
+        // Creamos el usuario en base de datos
+        // (password se guarda hasheado y los flags admin/cancelada se inicializan)
         $user = \App\Models\User::create([
             'name'      => $data['name'],
             'email'     => $data['email'],
@@ -28,26 +28,28 @@ class AuthController extends Controller
             'cancelada' => false,
         ]);
 
+        // Generamos token personal de Sanctum para que el frontend pueda autenticar peticiones
         /** @var \App\Models\User $user */
         $newToken = $user->createToken('main');
         $token = $newToken->plainTextToken;
 
-
+        // Devolvemos usuario + token (formato típico para login/signup en SPAs)
         return response([
             'user'  => $user,
             'token' => $token,
         ]);
     }
 
-    /**
-     * Inicia sesión. Si la cuenta está cancelada, se bloquea el login.
-     */
     public function login(LoginRequest $request)
     {
+        // Recuperamos credenciales validadas (email/ password / remember)
         $credentials = $request->validated();
+
+        // "remember" no forma parte de las credenciales de Auth::attempt, lo separamos
         $remember = $credentials['remember'] ?? false;
         unset($credentials['remember']);
 
+        // Intento de login: si falla devolvemos error 422 (front lo trata como error de formulario)
         if (!Auth::attempt($credentials, $remember)) {
             return response()->json([
                 'errors' => [
@@ -56,11 +58,15 @@ class AuthController extends Controller
             ], 422);
         }
 
+        // Si el login es correcto, Auth::user() nos da el usuario autenticado
         /** @var \App\Models\User $user */
         $user = Auth::user();
 
+        // Regla del sistema: si la cuenta está cancelada, no puede iniciar sesión
+        // Hacemos logout inmediato y devolvemos un 403 para indicar bloqueo
         if ($user && $user->cancelada) {
             Auth::logout();
+
             return response()->json([
                 'errors' => [
                     'account' => ['Tu cuenta está cancelada. Contacta con el administrador.
@@ -69,22 +75,23 @@ class AuthController extends Controller
             ], 403);
         }
 
+        // Generamos un token nuevo de Sanctum para esta sesión
         $newToken = $user->createToken('main');
         $token = $newToken->plainTextToken;
 
-
+        // Devolvemos usuario + token para que el frontend lo guarde (localStorage/cookies, etc.)
         return response([
             'user'  => $user,
             'token' => $token,
         ]);
     }
 
-    /**
-     * Cierra sesión eliminando el token actual.
-     */
     public function logout(Request $request)
     {
+        // Obtenemos el usuario autenticado en esta request (si viene con token)
         $user = $request->user();
+
+        // Con Sanctum, eliminamos solo el token actual (cierra sesión en este dispositivo)
         $token = $user?->currentAccessToken();
         $token?->delete();
 
@@ -93,13 +100,12 @@ class AuthController extends Controller
         ]);
     }
 
-    /**
-     * Devuelve el usuario autenticado.
-     */
     public function me(Request $request)
     {
+        // Devuelve el usuario asociado al token (si existe)
         $user = $request->user();
 
+        // Añadimos un campo calculado para el frontend (no necesariamente guardado en BD)
         if ($user) {
             $user->valoracion_media = $user->valoracionMedia();
         }
@@ -107,13 +113,12 @@ class AuthController extends Controller
         return response()->json($user);
     }
 
-    /**
-     * Actualiza el perfil del usuario autenticado.
-     */
     public function updateProfile(Request $request)
     {
+        // Usuario autenticado que está editando su perfil
         $user = $request->user();
 
+        // Validación directa aquí porque es una actualización sencilla de perfil
         $data = $request->validate([
             'name'      => 'required|string|max:255',
             'direccion' => 'nullable|string|max:255',
@@ -122,9 +127,11 @@ class AuthController extends Controller
             'cp'        => 'nullable|string|max:20',
         ]);
 
+        // Rellenamos con los campos permitidos y guardamos cambios
         $user->fill($data);
         $user->save();
 
+        // Devolvemos el usuario actualizado para refrescar el estado en el frontend
         return response()->json($user);
     }
 }

@@ -11,35 +11,33 @@ use App\Services\TCGdexService;
 
 class ColeccionController extends Controller
 {
-    /**
-     * Servicio para obtener datos de cartas desde TCGdex.
-     *
-     * @var \App\Services\TCGdexService
-     */
+    // Servicio inyectado para consultar datos de cartas (API TCGdex)
     protected TCGdexService $tcgdex;
 
     public function __construct(TCGdexService $tcgdex)
     {
+        // Guardamos el servicio en una propiedad para usarlo en distintos endpoints
         $this->tcgdex = $tcgdex;
     }
 
-    /**
-     * Devuelve la colección completa del usuario autenticado.
-     */
     public function index(): JsonResponse
     {
+        // ID del usuario autenticado (colección personal)
         $userId = Auth::id();
 
+        // Cargamos todas las entradas de la colección incluyendo la relación con el grado
         $items = Coleccion::with('grado')
             ->where('id_usuario', $userId)
             ->get();
 
-        // Enriquecemos cada entrada con los datos de la carta desde TCGdex
+        // Enriquecemos cada entrada con datos de la carta consultando TCGdex
+        // (esto permite que el front tenga nombre, imagen, etc. sin guardarlo en BD)
         $items->transform(function (Coleccion $item) {
             if ($item->id_carta) {
                 try {
                     $item->tcgdex = $this->tcgdex->getCard($item->id_carta);
                 } catch (\Throwable $e) {
+                    // Si la API falla, preferimos devolver null y no romper todo el endpoint
                     $item->tcgdex = null;
                 }
             } else {
@@ -52,14 +50,9 @@ class ColeccionController extends Controller
         return response()->json($items);
     }
 
-    /**
-     * Añade una carta a la colección del usuario.
-     *
-     * Si ya existe una entrada con el mismo id_carta e id_grado para el usuario,
-     * se suma la cantidad.
-     */
     public function store(Request $request): JsonResponse
     {
+        // Validamos los datos mínimos para añadir una carta a la colección
         $data = $request->validate([
             'id_carta' => 'required|string|max:100',
             'id_grado' => 'required|integer',
@@ -67,15 +60,17 @@ class ColeccionController extends Controller
             'notas'    => 'nullable|string',
         ]);
 
+        // Usuario autenticado
         $userId = Auth::id();
 
-        // ✅ Aseguramos que exista la carta en la tabla `cartas` (FK)
-        //    Si no existe, la creamos sólo con el id (el resto lo da TCGdex)
+        // Aseguramos que exista el registro de la carta en la tabla `cartas`
+        // (esto evita problemas de FK: coleccion.id_carta -> cartas.id)
+        // Guardamos solo el id porque el detalle lo consultamos en TCGdex
         Carta::firstOrCreate([
             'id' => $data['id_carta'],
         ]);
 
-        // Buscamos si ya existe esa carta con ese grado en la colección del usuario
+        // Buscamos si ya existe esa misma combinación (usuario + carta + grado)
         $query = Coleccion::where('id_usuario', $userId)
             ->where('id_carta', $data['id_carta'])
             ->where('id_grado', $data['id_grado']);
@@ -83,79 +78,67 @@ class ColeccionController extends Controller
         $entradaExistente = $query->first();
 
         if ($entradaExistente) {
-            // Calculamos la nueva cantidad y actualizamos mediante query
+            // Si ya existía, sumamos la cantidad en vez de crear una fila nueva
             $nuevaCantidad = $entradaExistente->cantidad + $data['cantidad'];
 
             $updates = ['cantidad' => $nuevaCantidad];
+
+            // Notas: solo se actualizan si vienen en la request
             if (array_key_exists('notas', $data)) {
                 $updates['notas'] = $data['notas'];
             }
 
+            // Actualización directa por query (sin necesidad de $entradaExistente->save())
             $query->update($updates);
         } else {
-            // Creamos una nueva entrada
+            // Si no existía, creamos una nueva entrada en la colección
             $entradaExistente = Coleccion::create([
                 'id_usuario' => $userId,
                 'id_carta'   => $data['id_carta'],
                 'id_grado'   => $data['id_grado'],
                 'cantidad'   => $data['cantidad'],
                 'notas'      => $data['notas'] ?? null,
-                // fecha_adquisicion se rellena sola por defecto en la migración
+                // fecha_adquisicion se rellena por defecto en la migración
             ]);
         }
 
-        // Volvemos a cargar la entrada actualizada
+        // Recuperamos la entrada final (ya sea creada o actualizada) incluyendo el grado
         $entrada = Coleccion::with('grado')
             ->where('id_usuario', $userId)
             ->where('id_carta', $data['id_carta'])
             ->where('id_grado', $data['id_grado'])
             ->first();
 
-        // Enriquecemos con datos de carta
+        // Enriquecemos con datos de la carta (TCGdex)
         try {
             $entrada->tcgdex = $this->tcgdex->getCard($entrada->id_carta);
         } catch (\Throwable $e) {
             $entrada->tcgdex = null;
         }
 
+        // 201 porque en general se considera "recurso creado/actualizado al añadir"
         return response()->json($entrada, 201);
     }
 
-    /**
-     * (MÉTODO LEGADO) Actualiza una entrada de colección por ID numérico interno.
-     * Actualmente tu tabla no tiene columna "id", así que este método
-     * no se está utilizando en el frontend.
-     */
     public function update(Request $request, int $id): JsonResponse
     {
+        // Método legado:  PK compuesta
         return response()->json([
             'message' => 'Actualización por ID numérico no soportada en la tabla coleccion.',
         ], 400);
     }
 
-    /**
-     * (MÉTODO LEGADO) Elimina una entrada de colección por ID numérico interno.
-     * Actualmente tu tabla no tiene columna "id", así que este método
-     * no se está utilizando en el frontend.
-     */
     public function destroy(int $id): JsonResponse
     {
+        // Método legado: igual que el anterior
         return response()->json([
             'message' => 'Eliminación por ID numérico no soportada en la tabla coleccion.',
         ], 400);
     }
 
-    /* =========================================================
-     *  MÉTODOS: trabajar por ID DE CARTA (id_carta, ej: bw8-3)
-     *  Usados por la pantalla /mi-coleccion/:coleccionId (React)
-     * ========================================================= */
-
-    /**
-     * Devuelve la entrada de colección (una sola) de esta carta para el usuario.
-     * GET /api/coleccion/carta/{id_carta}
-     */
     public function showByCard(string $id_carta): JsonResponse
     {
+        // Devuelve UNA entrada de colección para esa carta (del usuario autenticado)
         $userId = Auth::id();
 
         $entrada = Coleccion::with('grado')
@@ -163,6 +146,7 @@ class ColeccionController extends Controller
             ->where('id_carta', $id_carta)
             ->firstOrFail();
 
+        // Añadimos datos de la carta desde TCGdex para el front
         try {
             $entrada->tcgdex = $this->tcgdex->getCard($entrada->id_carta);
         } catch (\Throwable $e) {
@@ -172,14 +156,9 @@ class ColeccionController extends Controller
         return response()->json($entrada);
     }
 
-    /**
-     * Actualiza la entrada de colección para una carta concreta (id_carta).
-     * IMPORTANTE: aquí actualizamos por (usuario + carta) y dejamos id_grado
-     * como campo modificable. La PK real sigue siendo (id_usuario,id_carta,id_grado).
-     * PUT /api/coleccion/carta/{id_carta}
-     */
     public function updateByCard(Request $request, string $id_carta): JsonResponse
     {
+        // Actualización por id_carta (para pantallas tipo /mi-coleccion/:id)
         $userId = Auth::id();
 
         $data = $request->validate([
@@ -188,12 +167,14 @@ class ColeccionController extends Controller
             'notas'    => 'nullable|string',
         ]);
 
+        // Buscamos la entrada(s) de esa carta para el usuario
         $query = Coleccion::where('id_usuario', $userId)
             ->where('id_carta', $id_carta);
 
         $entrada = $query->firstOrFail();
 
-        // Si la cantidad pasa a 0, eliminamos la entrada (sólo esa carta del usuario)
+        // Si la cantidad se pone a 0 (o menos), eliminamos la entrada
+        // (en vez de guardar cantidad=0, dejamos la colección limpia)
         if (array_key_exists('cantidad', $data) && $data['cantidad'] <= 0) {
             $query->delete();
 
@@ -202,15 +183,16 @@ class ColeccionController extends Controller
             ]);
         }
 
-        // Actualizamos sólo esta entrada mediante query, sin usar save()
+        // Actualizamos campos recibidos (solo los que vienen en $data)
         $query->update($data);
 
-        // Volvemos a cargar la entrada actualizada
+        // Recargamos la entrada para devolverla actualizada (con relación grado)
         $entradaRefrescada = Coleccion::with('grado')
             ->where('id_usuario', $userId)
             ->where('id_carta', $id_carta)
             ->firstOrFail();
 
+        // Enriquecemos con TCGdex
         try {
             $entradaRefrescada->tcgdex = $this->tcgdex->getCard($entradaRefrescada->id_carta);
         } catch (\Throwable $e) {
@@ -220,15 +202,9 @@ class ColeccionController extends Controller
         return response()->json($entradaRefrescada);
     }
 
-    /**
-     * Elimina la entrada de colección asociada a una carta concreta (id_carta)
-     * para el usuario autenticado.
-     * OJO: esta versión borra TODAS las filas de esa carta para el usuario.
-     * La dejo por compatibilidad, pero en React vamos a usar la versión con grado.
-     * DELETE /api/coleccion/carta/{id_carta}
-     */
     public function destroyByCard(string $id_carta): JsonResponse
     {
+        // Elimina TODAS las filas del usuario asociadas a esa carta (cualquier grado)
         $userId = Auth::id();
 
         $query = Coleccion::where('id_usuario', $userId)
@@ -236,12 +212,14 @@ class ColeccionController extends Controller
 
         $entrada = $query->first();
 
+        // Si no existe, devolvemos 404
         if (!$entrada) {
             return response()->json([
                 'message' => 'No se encontró la carta en tu colección.',
             ], 404);
         }
 
+        // Borrado en bloque
         $query->delete();
 
         return response()->json([
@@ -249,14 +227,9 @@ class ColeccionController extends Controller
         ]);
     }
 
-    /**
-     * ✅ NUEVO: Elimina UNA ÚNICA fila de colección por
-     * (id_usuario, id_carta, id_grado).
-     *
-     * DELETE /api/coleccion/carta/{id_carta}/grado/{id_grado}
-     */
     public function destroyByCardAndGrade(string $id_carta, int $id_grado): JsonResponse
     {
+        // Elimina UNA fila concreta por (usuario + carta + grado)
         $userId = Auth::id();
 
         $query = Coleccion::where('id_usuario', $userId)
@@ -265,12 +238,14 @@ class ColeccionController extends Controller
 
         $entrada = $query->first();
 
+        // Si no existe esa combinación, devolvemos 404
         if (!$entrada) {
             return response()->json([
                 'message' => 'No se encontró la carta con ese grado en tu colección.',
             ], 404);
         }
 
+        // Borramos solo esa fila (esa carta con ese grado)
         $query->delete();
 
         return response()->json([

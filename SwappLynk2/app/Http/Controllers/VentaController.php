@@ -13,14 +13,14 @@ use App\Mail\SellerPurchaseNotificationMail;
 
 class VentaController extends Controller
 {
-    /**
-     * Devuelve el historial de compras del usuario autenticado.
-     * Para cada venta, adjunta la información de la carta desde la API de TCGdex.
-     */
     public function index()
     {
+        // ID del usuario autenticado (queremos su historial de compras)
         $usuarioId = Auth::id();
 
+        // Cargamos compras del usuario y relaciones necesarias para el frontend:
+        // - enVenta.* para poder mostrar vendedor, grado, etc.
+        // - valoraciones y estado para mostrar información del proceso y si ya valoró
         $compras = Venta::where('id_comprador', $usuarioId)
             ->with([
                 'enVenta.carta',
@@ -32,8 +32,10 @@ class VentaController extends Controller
             ->orderByDesc('fecha_venta')
             ->get();
 
+        // Servicio externo para enriquecer la carta (nombre, imagen, etc.)
         $tcgdex = new TCGdexService();
 
+        // Convertimos a array y añadimos "tcgdex" dentro de en_venta por cada venta
         $compras = $compras->map(function ($venta) use ($tcgdex) {
             $arr = $venta->toArray();
 
@@ -47,33 +49,36 @@ class VentaController extends Controller
         return response()->json($compras);
     }
 
-    /**
-     * Registra una compra:
-     * 1) Comprueba que la publicación existe y está activa.
-     * 2) Crea el registro de la venta con estado inicial.
-     * 3) Marca la publicación como vendida.
-     * 4) Envía un email al vendedor indicando la dirección a la que debe enviarla.
-     */
     public function store(Request $request)
     {
+        // Usuario autenticado (comprador)
         $usuarioId = Auth::id();
 
+        // Solo necesitamos el id de la publicación a comprar
         $request->validate([
             'id_en_venta' => 'required|exists:en_venta,id',
         ]);
 
+        // Buscamos la publicación y comprobamos que siga activa
         $enVenta = EnVenta::where('id', $request->id_en_venta)
             ->where('estado', 'activa')
             ->first();
 
         if (!$enVenta) {
-            return response()->json(['error' => 'Publicación no encontrada o ya vendida.'], 404);
+            return response()->json([
+                'error' => 'Publicación no encontrada o ya vendida.',
+            ], 404);
         }
 
+        // Regla: no permitimos que el usuario se compre a sí mismo
         if ((int) $enVenta->id_usuario === (int) $usuarioId) {
-            return response()->json(['error' => 'No puedes comprarte a ti mismo.'], 400);
+            return response()->json([
+                'error' => 'No puedes comprarte a ti mismo.',
+            ], 400);
         }
 
+        // Creamos el registro de la venta con estado inicial = 1
+        // (según tu sistema: 1 = esperando recibir)
         $venta = Venta::create([
             'id_en_venta'  => $enVenta->id,
             'id_comprador' => $usuarioId,
@@ -82,19 +87,19 @@ class VentaController extends Controller
             'id_estado'    => 1,
         ]);
 
+        // Marcamos la publicación como vendida para que no se pueda comprar otra vez
         $enVenta->estado = 'vendida';
         $enVenta->save();
 
+        // Avisamos al vendedor por email con los datos de la compra
         $this->notifySellerByEmail($enVenta, $venta);
 
         return response()->json($venta, 201);
     }
 
-    /**
-     * Devuelve el detalle de una venta concreta, incluyendo la carta desde TCGdex.
-     */
     public function show($id)
     {
+        // Detalle de una venta concreta con todas las relaciones que usa el front
         $venta = Venta::with([
             'enVenta.carta',
             'enVenta.usuario',
@@ -104,6 +109,7 @@ class VentaController extends Controller
             'estado',
         ])->findOrFail($id);
 
+        // Añadimos los datos externos de la carta (TCGdex)
         $tcgdex = new TCGdexService();
         $arr = $venta->toArray();
 
@@ -114,25 +120,26 @@ class VentaController extends Controller
         return response()->json($arr);
     }
 
-    /**
-     * Envía al vendedor un correo indicando que su carta se ha comprado y debe enviarla
-     * a la dirección fija que has indicado para la intermediación.
-     */
     private function notifySellerByEmail(EnVenta $enVenta, Venta $venta): void
     {
+        // Este método se encarga de enviar un email al vendedor con info útil
+        // (lo envolvemos en try/catch para no romper la compra si falla el correo)
         try {
+            // Cargamos el vendedor asociado a la publicación
             $enVenta->load('usuario');
-
             $seller = $enVenta->usuario;
 
+            // Si no hay vendedor o no tiene email, no podemos notificar
             if (!$seller || empty($seller->email)) {
                 return;
             }
 
+            // Si el vendedor está cancelado, evitamos enviarle correos
             if (property_exists($seller, 'cancelada') && $seller->cancelada) {
                 return;
             }
 
+            // Consultamos TCGdex para obtener el nombre real de la carta
             $tcgdex = new TCGdexService();
             $card = $tcgdex->getCard((string) $enVenta->id_carta);
 
@@ -140,10 +147,13 @@ class VentaController extends Controller
                 ? (string) $card['name']
                 : (string) $enVenta->id_carta;
 
-            $purchaseInfo = 'ID venta: ' . (string) $venta->id .
+            // Texto compacto con datos de la venta para incluir en el email
+            $purchaseInfo =
+                'ID venta: ' . (string) $venta->id .
                 ' | Publicación: ' . (string) $enVenta->id .
                 ' | Precio: ' . (string) $venta->precio_total . ' €';
 
+            // Enviamos el email con un Mailable
             Mail::to($seller->email)->send(
                 new SellerPurchaseNotificationMail(
                     (string) ($seller->name ?? 'usuario'),
@@ -152,9 +162,10 @@ class VentaController extends Controller
                 )
             );
         } catch (\Throwable $e) {
+            // Si falla el envío, lo dejamos registrado para depurar
             Log::error('Error enviando correo al vendedor tras compra: ' . $e->getMessage(), [
                 'en_venta_id' => $enVenta->id ?? null,
-                'venta_id' => $venta->id ?? null,
+                'venta_id'    => $venta->id ?? null,
             ]);
         }
     }

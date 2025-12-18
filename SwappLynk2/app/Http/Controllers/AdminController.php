@@ -11,23 +11,21 @@ use App\Models\Coleccion;
 
 class AdminController extends Controller
 {
-    /**
-     * GET /admin/resumen
-     * Devuelve datos agregados para el dashboard de administración.
-     */
     public function summary()
     {
+        // Contadores globales para el dashboard
         $totalUsuarios     = User::count();
         $totalVentas       = Venta::count();
         $totalValoraciones = Valoracion::count();
 
-        // Cartas en venta (estado 'activa') de usuarios cuya cuenta NO está cancelada
+        // Cuenta publicaciones activas SOLO de usuarios que NO estén cancelados
         $totalEnVentaNoCanceladas = EnVenta::where('estado', 'activa')
             ->whereHas('usuario', function ($q) {
                 $q->where('cancelada', false);
             })
             ->count();
 
+        // Devolvemos el resumen en JSON para el panel de administración
         return response()->json([
             'total_usuarios'               => $totalUsuarios,
             'total_ventas'                 => $totalVentas,
@@ -36,13 +34,9 @@ class AdminController extends Controller
         ]);
     }
 
-    /**
-     * GET /admin/users
-     * Lista todos los usuarios del sistema (para la tabla de AdminUsuarios.jsx)
-     */
     public function indexUsers()
     {
-        // Seleccionamos lo que realmente necesitamos
+        // Traemos solo los campos que necesita el front para la tabla de usuarios
         $users = User::select(
                 'id',
                 'name',
@@ -55,76 +49,67 @@ class AdminController extends Controller
             ->orderBy('id', 'asc')
             ->get();
 
-        // Calculamos la valoración media /5 a partir de suma_val y cantidad_val (si existen)
+        // Calculamos la valoración media en escala 0–5 a partir de los agregados (si existen)
         foreach ($users as $user) {
             $media10 = 0;
+
             if ($user->cantidad_val > 0 && $user->suma_val !== null) {
                 $media10 = (float) $user->suma_val / (int) $user->cantidad_val;
             }
-            // Escala 0–5
+
+            // En BD parece estar en escala 0–10, así que lo pasamos a 0–5
             $user->valoracion_media = $media10 > 0 ? round($media10 / 2, 2) : 0.0;
         }
 
+        // Respuesta directa en JSON para consumir desde React
         return response()->json($users);
     }
 
-    /**
-     * GET /admin/users/{id}
-     * Devuelve el detalle de un usuario + sus compras y ventas,
-     * pensado para AdminUsuarioDetalle.jsx
-     */
     public function showUser($id)
     {
+        // Cargamos el usuario o devolvemos 404 si no existe
         $user = User::findOrFail($id);
 
-        // Compras donde este usuario es comprador
+        // Compras: ventas donde el usuario actúa como comprador
         $compras = Venta::where('id_comprador', $user->id)
             ->orderBy('fecha_venta', 'desc')
             ->get();
 
-        // Publicaciones en venta (histórico) donde este usuario es vendedor
+        // Ventas/publicaciones: histórico de publicaciones del usuario como vendedor
         $ventas = EnVenta::where('id_usuario', $user->id)
             ->orderBy('fecha_publicacion', 'desc')
             ->get();
 
-        // Valoraciones recibidas para calcular media
+        // Valoraciones recibidas: calculamos media usando las valoraciones reales (por si los agregados no están actualizados)
         $valoraciones = Valoracion::where('id_valorado', $user->id)->get();
-        $suma = $valoraciones->sum('valor');
+        $suma     = $valoraciones->sum('valor');
         $cantidad = $valoraciones->count();
 
         $media10 = $cantidad > 0 ? $suma / $cantidad : 0;
         $media5  = $media10 > 0 ? round($media10 / 2, 2) : 0.0;
 
-        // Rellenamos campos agregados (por si quieres aprovecharlos en otro sitio)
+        // Rellenamos campos agregados para devolverlos listos al front (sin depender de jobs o triggers)
         $user->suma_val         = $suma;
         $user->cantidad_val     = $cantidad;
         $user->valoracion_media = $media5;
 
-        // Metemos relaciones “ad-hoc” para que el JSON salga tal cual espera el frontend
+        // “Adjuntamos” compras y ventas en el JSON de salida como relaciones calculadas al vuelo
         $user->setRelation('compras', $compras);
         $user->setRelation('ventas', $ventas);
 
         return response()->json($user);
     }
 
-    /**
-     * POST /admin/users/{id}/cancelar
-     * Marca una cuenta como cancelada (baneada).
-     * También revoca sus tokens de Sanctum para que no pueda seguir usando la API.
-     */
     public function cancelUser($id)
     {
+        // Localizamos al usuario a cancelar
         $user = User::findOrFail($id);
 
-        // Opcional: evitar que un admin cancele a otro admin
-        // if ($user->admin) {
-        //     return response()->json(['message' => 'No se puede cancelar a otro administrador.'], 403);
-        // }
-
+        // Marcamos la cuenta como cancelada (baneada)
         $user->cancelada = true;
         $user->save();
 
-        // Revocar todos los tokens de acceso (Sanctum)
+        // Si usa Sanctum, eliminamos tokens para forzar logout en todos los dispositivos
         if (method_exists($user, 'tokens')) {
             $user->tokens()->delete();
         }
@@ -132,12 +117,9 @@ class AdminController extends Controller
         return response()->json($user);
     }
 
-    /**
-     * POST /admin/users/{id}/reactivar
-     * Reactiva una cuenta cancelada.
-     */
     public function reactivateUser($id)
     {
+        // Reactivamos la cuenta quitando el flag de cancelación
         $user = User::findOrFail($id);
 
         $user->cancelada = false;
@@ -146,17 +128,16 @@ class AdminController extends Controller
         return response()->json($user);
     }
 
-    /**
-     * GET /admin/ventas
-     * Listado global de ventas para AdminVentas.jsx
-     */
     public function indexVentas()
     {
-        // Cargamos comprador, publicación original (para vendedor) y estado
+        // Listado global con relaciones necesarias:
+        // - comprador (para mostrar quién compra)
+        // - enVenta.usuario (para obtener vendedor desde la publicación)
+        // - estado (para mostrar el estado actual)
         $ventas = Venta::with([
-                'comprador',        // Venta::comprador()
-                'enVenta.usuario',  // Venta::enVenta() -> EnVenta::usuario()
-                'estado',           // Venta::estado()
+                'comprador',
+                'enVenta.usuario',
+                'estado',
             ])
             ->orderBy('fecha_venta', 'desc')
             ->get();
@@ -164,25 +145,12 @@ class AdminController extends Controller
         return response()->json($ventas);
     }
 
-    /**
-     * PUT /admin/ventas/{id}/estado
-     * Cambio de estado PROGRESIVO:
-     *
-     *   1 -> 2 -> 3
-     *   Desde cualquiera se puede ir a 4 (cancelada).
-     *
-     * Reglas extra:
-     *   - Si una venta está en estado 4 ya no puede cambiar a otro.
-     *   - Al pasar a 3 (ENVIADO) se mueve la carta de la colección del vendedor
-     *     a la colección del comprador.
-     *   - Al pasar de 3 -> 4 (CANCELADA) se revierte ese movimiento.
-     *   - Siempre que sea 4, en_venta.estado pasa a 'activa'.
-     */
     public function updateVentaEstado(Request $request, $id)
     {
-        // Incluimos enVenta para tocar estado y colecciones
+        // Cargamos la venta y su publicación asociada (EnVenta) para poder tocar estado y colecciones
         $venta = Venta::with('enVenta')->findOrFail($id);
 
+        // Validación básica del nuevo estado
         $data = $request->validate([
             'id_estado' => 'required|integer|exists:estados,id',
         ]);
@@ -190,28 +158,29 @@ class AdminController extends Controller
         $nuevoEstadoId    = (int) $data['id_estado'];
         $estadoAnteriorId = (int) ($venta->id_estado ?? 0);
 
-        // Si ya está cancelada y se quiere cambiar a otro estado -> NO permitido
+        // Regla: si ya está cancelada (4) no permitimos volver a otro estado
         if ($estadoAnteriorId === 4 && $nuevoEstadoId !== 4) {
             return response()->json([
                 'message' => 'No se puede modificar el estado de una venta cancelada.',
             ], 400);
         }
 
-        // Si el nuevo estado es el mismo que el actual, no hacemos nada "gordo"
+        // Si no hay cambio real, devolvemos la venta cargada sin aplicar lógica extra
         if ($estadoAnteriorId === $nuevoEstadoId) {
             $venta->load(['comprador', 'enVenta.usuario', 'estado']);
             return response()->json($venta);
         }
 
-        // Comprobación de transición PROGRESIVA (salvo cancelada=4 que siempre se permite)
+        // Comprobamos si la transición de estado es válida:
+        // - Progresiva 1 -> 2 -> 3
+        // - A 4 (cancelada) se puede ir desde cualquiera
         $permitido = false;
 
         if ($nuevoEstadoId === 4) {
-            // Siempre se puede ir a cancelada
             $permitido = true;
         } else {
             switch ($estadoAnteriorId) {
-                case 0: // sin estado inicial
+                case 0:
                     $permitido = in_array($nuevoEstadoId, [1], true);
                     break;
                 case 1:
@@ -221,6 +190,7 @@ class AdminController extends Controller
                     $permitido = in_array($nuevoEstadoId, [3], true);
                     break;
                 case 3:
+                    // Una vez enviado, no debería avanzar a otros estados (salvo cancelación, tratada arriba)
                     $permitido = ($nuevoEstadoId === 3);
                     break;
                 case 4:
@@ -238,13 +208,16 @@ class AdminController extends Controller
             ], 400);
         }
 
-        $enVenta = $venta->enVenta; // puede ser null si se ha tocado a mano en BD
+        // EnVenta puede ser null si alguien tocó cosas a mano en BD
+        $enVenta = $venta->enVenta;
 
-        // ============================
-        //  LÓGICA DE COLECCIONES
-        // ============================
+        // ============================================================
+        //  LÓGICA DE COLECCIONES (movimiento de carta vendedor->comprador)
+        // ============================================================
 
-        // 1) Si pasamos por primera vez a ENVIADO (3) → mover carta vendedor -> comprador
+        // Si entramos en estado 3 (ENVIADO) por primera vez, movemos la carta:
+        // - NO se resta al vendedor porque ya se decrementa al poner en venta
+        // - se suma al comprador (colección)
         if ($estadoAnteriorId !== 3 && $nuevoEstadoId === 3 && $enVenta) {
             $sellerId = $enVenta->id_usuario;
             $buyerId  = $venta->id_comprador;
@@ -253,23 +226,7 @@ class AdminController extends Controller
 
             if ($sellerId && $buyerId && $idCarta && $idGrado) {
 
-                // --- VENDEDOR: decrementa solo esa carta ---
-                $sellerWhere = [
-                    'id_usuario' => $sellerId,
-                    'id_carta'   => $idCarta,
-                    'id_grado'   => $idGrado,
-                ];
-
-                $sellerCol = Coleccion::where($sellerWhere)->first();
-                if ($sellerCol) {
-                    Coleccion::where($sellerWhere)->decrement('cantidad');
-                    $sellerCol = Coleccion::where($sellerWhere)->first();
-                    if ($sellerCol && $sellerCol->cantidad <= 0) {
-                        $sellerCol->delete();
-                    }
-                }
-
-                // --- COMPRADOR: incrementa solo esa carta ---
+                // COMPRADOR: incrementamos solo esa carta/grado (o creamos el registro si no existe)
                 $buyerWhere = [
                     'id_usuario' => $buyerId,
                     'id_carta'   => $idCarta,
@@ -280,6 +237,8 @@ class AdminController extends Controller
 
                 if ($compradorCol) {
                     Coleccion::where($buyerWhere)->increment('cantidad');
+
+                    // Actualizamos fecha de adquisición para reflejar la nueva compra
                     Coleccion::where($buyerWhere)->update([
                         'fecha_adquisicion' => now(),
                     ]);
@@ -295,17 +254,22 @@ class AdminController extends Controller
             }
         }
 
-        // 2) Guardamos el nuevo estado
+        // Guardamos el nuevo estado en la venta
         $venta->id_estado = $nuevoEstadoId;
         $venta->save();
 
-        // 3) Si pasamos a CANCELADA (4)
+        // ============================================================
+        //  CANCELACIÓN (estado 4)
+        // ============================================================
+
         if ($nuevoEstadoId === 4 && $enVenta) {
-            // Publicación vuelve a estar activa
+            // Al cancelar, la publicación vuelve a estar activa para poder venderse de nuevo
             $enVenta->estado = 'activa';
             $enVenta->save();
 
-            // Si veníamos de ENVIADO (3), revertimos el movimiento de colecciones
+            // Si ya estaba en ENVIADO (3), entonces hay que revertir el movimiento:
+            // - se quita al comprador
+            // - se devuelve al vendedor
             if ($estadoAnteriorId === 3) {
                 $sellerId = $enVenta->id_usuario;
                 $buyerId  = $venta->id_comprador;
@@ -314,7 +278,7 @@ class AdminController extends Controller
 
                 if ($sellerId && $buyerId && $idCarta && $idGrado) {
 
-                    // --- COMPRADOR: quitar solo esa carta ---
+                    // COMPRADOR: decrementamos esa carta/grado
                     $buyerWhere = [
                         'id_usuario' => $buyerId,
                         'id_carta'   => $idCarta,
@@ -324,13 +288,15 @@ class AdminController extends Controller
                     $compradorCol = Coleccion::where($buyerWhere)->first();
                     if ($compradorCol) {
                         Coleccion::where($buyerWhere)->decrement('cantidad');
+
+                        // Si se queda a 0 o menos, eliminamos el registro
                         $compradorCol = Coleccion::where($buyerWhere)->first();
                         if ($compradorCol && $compradorCol->cantidad <= 0) {
                             $compradorCol->delete();
                         }
                     }
 
-                    // --- VENDEDOR: devolver solo esa carta ---
+                    // VENDEDOR: devolvemos esa carta/grado
                     $sellerWhere = [
                         'id_usuario' => $sellerId,
                         'id_carta'   => $idCarta,
@@ -356,7 +322,7 @@ class AdminController extends Controller
             }
         }
 
-        // Recargamos relaciones para que el front tenga todo fresco
+        // Recargamos relaciones para devolver al front el objeto completo (sin tener que hacer otra petición)
         $venta->load(['comprador', 'enVenta.usuario', 'estado']);
 
         return response()->json($venta);
