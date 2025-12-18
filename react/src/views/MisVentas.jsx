@@ -1,36 +1,77 @@
 // react/src/views/MisVentas.jsx
+
+// Hooks de React:
+// - useState: guardar estado local (ventas, loading, modal, rating, comentario, etc.)
+// - useEffect: cargar las compras al entrar en la pantalla
 import { useEffect, useState } from "react";
+
+// Componente de layout común (título + contenedor)
 import PageComponent from "../shared/components/PageComponent.jsx";
+
+// Cliente Axios configurado para hablar con el backend
 import axiosClient from "../axios.js";
+
+// Contexto global:
+// - setMisVentas: guardar también las compras en contexto (por si otras vistas las usan)
 import { useStateContext } from "../Contexts/ContextProvider.jsx";
 
 export default function MisVentas() {
+  // Listado de compras realizadas por el usuario (GET /ventas)
   const [ventas, setVentas] = useState([]);
+
+  // Estado de carga general de la tabla
   const [loading, setLoading] = useState(false);
 
+  // Setter del contexto para sincronizar el listado global de compras
   const { setMisVentas } = useStateContext();
 
-  // Estado para la valoración
+  // ==========================
+  //   ESTADO DEL MODAL (VALORACIÓN)
+  // ==========================
+
+  // Controla si el modal se muestra o no
   const [modalAbierto, setModalAbierto] = useState(false);
+
+  // Venta que se está valorando en el modal
   const [ventaSeleccionada, setVentaSeleccionada] = useState(null);
-  const [rating, setRating] = useState(10); // 0–10
+
+  // Puntuación elegida en el modal (0–10)
+  const [rating, setRating] = useState(10);
+
+  // Comentario opcional de la valoración
   const [comentario, setComentario] = useState("");
+
+  // Estado de “enviando” para deshabilitar inputs/botones mientras se guarda
   const [enviando, setEnviando] = useState(false);
+
+  // Mensaje de error específico del flujo de valoración
   const [errorValoracion, setErrorValoracion] = useState(null);
 
+  // Carga inicial de compras al montar la vista
   useEffect(() => {
     cargarVentas();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  /**
+   * cargarVentas
+   *
+   * Pide al backend el histórico de compras del usuario autenticado.
+   * Se guarda en el estado local para renderizarlo y también en contexto para reutilización.
+   */
   const cargarVentas = () => {
     setLoading(true);
+
     axiosClient
       .get("/ventas")
       .then((res) => {
         console.log("Compras recibidas:", res.data);
-        setVentas(res.data || []);
-        setMisVentas(res.data || []);
+
+        const data = Array.isArray(res.data) ? res.data : [];
+        setVentas(data);
+
+        // Copia al contexto para mantener consistencia con otras pantallas
+        setMisVentas(data);
       })
       .catch((err) => {
         console.error("Error cargando compras:", err);
@@ -40,17 +81,32 @@ export default function MisVentas() {
   };
 
   // ==========================
-  //   HELPERS PARA PINTAR
+  //   HELPERS PARA LEER DATOS
   // ==========================
 
+  /**
+   * getEnVenta
+   *
+   * Dentro de una venta suele venir el objeto en_venta, que contiene:
+   * - id_carta, precio, usuario (vendedor), y tcgdex (datos de la carta)
+   *
+   * Se mantiene compatibilidad con camelCase por si aparece en alguna respuesta antigua.
+   */
   const getEnVenta = (venta) => {
-    // Preferimos snake_case, pero dejamos compatibilidad con camelCase
     return venta.en_venta || venta.enVenta || {};
   };
 
+  /**
+   * getCardInfo
+   *
+   * Extrae lo necesario para mostrar la carta en la tabla:
+   * - imagen pequeña (o placeholder)
+   * - nombre (o id de carta)
+   *
+   * Los datos de la carta vienen anidados como en_venta.tcgdex.
+   */
   const getCardInfo = (venta) => {
     const enVenta = getEnVenta(venta);
-    // TCGdex viene de VentaController@index -> en_venta.tcgdex
     const tcg = enVenta.tcgdex || {};
 
     const posiblesImagenes = [
@@ -63,45 +119,70 @@ export default function MisVentas() {
     ].filter(Boolean);
 
     const imageUrl =
-      posiblesImagenes[0] ||
-      "https://via.placeholder.com/80x110?text=Sin+imagen";
+      posiblesImagenes[0] || "https://via.placeholder.com/80x110?text=Sin+imagen";
 
     const nombreCarta = tcg.name || enVenta.id_carta || "Carta sin nombre";
 
     return { imageUrl, nombreCarta };
   };
 
+  /**
+   * getVendedor
+   *
+   * Devuelve el usuario vendedor asociado a la publicación de en_venta.
+   */
   const getVendedor = (venta) => {
     const enVenta = getEnVenta(venta);
     return enVenta.usuario || null;
   };
 
+  /**
+   * getNombreVendedor
+   *
+   * Formatea un nombre legible del vendedor.
+   */
   const getNombreVendedor = (venta) => {
     const vendedor = getVendedor(venta);
     if (!vendedor) return "Vendedor desconocido";
-
     if (vendedor.name) return vendedor.name;
-
     return `Usuario #${vendedor.id}`;
   };
 
+  /**
+   * yaValorada
+   *
+   * Indica si la compra ya tiene valoraciones asociadas.
+   * La vista lo usa para deshabilitar el botón “Valorar”.
+   */
   const yaValorada = (venta) => {
     return Array.isArray(venta.valoraciones) && venta.valoraciones.length > 0;
   };
 
-  // Estado de la venta (1,2,3,4...)
+  /**
+   * getEstadoVenta
+   *
+   * Devuelve el id numérico del estado de la venta:
+   * - venta.id_estado (snake_case)
+   * - venta.estado.id (si viene anidado)
+   * Si no existe, devuelve null por compatibilidad con ventas antiguas.
+   */
   const getEstadoVenta = (venta) => {
     if (venta.id_estado) return Number(venta.id_estado);
     if (venta.estado?.id) return Number(venta.estado.id);
-    return null; // sin estado -> compatibilidad (trataremos como que se puede valorar)
+    return null;
   };
 
-  // Solo se puede valorar si estado es:
-  // 2 = Recibido, 3 = Enviado
-  // NO se puede valorar si 1 = Esperando recibir o 4 = Cancelada
+  /**
+   * sePuedeValorar
+   *
+   * Reglas de negocio para permitir valoración:
+   * - Permitido si estado es 2 (Recibido) o 3 (Enviado).
+   * - No permitido si 1 (Esperando recibir) o 4 (Cancelada).
+   * - Si el estado es null, se permite por compatibilidad.
+   */
   const sePuedeValorar = (venta) => {
     const estado = getEstadoVenta(venta);
-    if (estado === null) return true; // por si hay ventas antiguas sin estado
+    if (estado === null) return true;
     return estado === 2 || estado === 3;
   };
 
@@ -109,6 +190,14 @@ export default function MisVentas() {
   //   LÓGICA DEL MODAL
   // ==========================
 
+  /**
+   * abrirModalValoracion
+   *
+   * Abre el modal para valorar una compra concreta.
+   * Antes se valida:
+   * - que no esté ya valorada
+   * - que el estado permita valorar
+   */
   const abrirModalValoracion = (venta) => {
     if (yaValorada(venta)) {
       alert("Ya has valorado esta compra.");
@@ -116,31 +205,46 @@ export default function MisVentas() {
     }
 
     if (!sePuedeValorar(venta)) {
-      alert(
-        "Solo puedes valorar cuando la compra está en estado recibido o enviado."
-      );
+      alert("Solo se puede valorar cuando la compra está en recibido o enviado.");
       return;
     }
 
     setVentaSeleccionada(venta);
-    setRating(10); // valor por defecto 10 (0–10)
+    setRating(10);
     setComentario("");
     setErrorValoracion(null);
     setModalAbierto(true);
   };
 
+  /**
+   * cerrarModalValoracion
+   *
+   * Cierra el modal y limpia la venta seleccionada.
+   */
   const cerrarModalValoracion = () => {
     setModalAbierto(false);
     setVentaSeleccionada(null);
   };
 
+  /**
+   * handleEnviarValoracion
+   *
+   * Envía la valoración al backend:
+   * POST /valoraciones con:
+   * - id_valorado: id del vendedor
+   * - id_venta: id de la compra
+   * - valor: puntuación 0–10
+   * - descripcion: comentario opcional
+   *
+   * Si sale bien, se añade la nueva valoración al estado local y al contexto.
+   */
   const handleEnviarValoracion = () => {
     if (!ventaSeleccionada) return;
 
-    // Doble check por si el estado ha cambiado mientras el modal estaba abierto
+    // Revalidación por si el estado cambió durante el modal
     if (!sePuedeValorar(ventaSeleccionada)) {
       setErrorValoracion(
-        "El estado de la compra ha cambiado. Solo puedes valorar cuando está en recibido o enviado."
+        "El estado de la compra ha cambiado. Solo se puede valorar cuando está en recibido o enviado."
       );
       return;
     }
@@ -164,26 +268,20 @@ export default function MisVentas() {
       .then((res) => {
         const nuevaValoracion = res.data;
 
-        // Actualizamos el estado local
+        // Actualiza el listado local para que aparezca “Ya valorado” sin recargar
         setVentas((prev) =>
           prev.map((v) =>
             v.id === ventaSeleccionada.id
-              ? {
-                  ...v,
-                  valoraciones: [...(v.valoraciones || []), nuevaValoracion],
-                }
+              ? { ...v, valoraciones: [...(v.valoraciones || []), nuevaValoracion] }
               : v
           )
         );
 
-        // Y también el contexto global
+        // Actualiza el contexto global con la misma idea
         setMisVentas((prev = []) =>
           (prev || []).map((v) =>
             v.id === ventaSeleccionada.id
-              ? {
-                  ...v,
-                  valoraciones: [...(v.valoraciones || []), nuevaValoracion],
-                }
+              ? { ...v, valoraciones: [...(v.valoraciones || []), nuevaValoracion] }
               : v
           )
         );
@@ -213,10 +311,11 @@ export default function MisVentas() {
         </div>
       ) : ventas.length === 0 ? (
         <div className="text-center py-12">
-          <p className="text-gray-500">Aún no has realizado compras</p>
+          <p className="text-gray-500">Aún no hay compras realizadas</p>
         </div>
       ) : (
         <div className="relative">
+          {/* Tabla responsive: lista de compras */}
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead className="bg-gray-100">
@@ -240,7 +339,7 @@ export default function MisVentas() {
                       key={venta.id}
                       className="border-b hover:bg-gray-50 align-middle"
                     >
-                      {/* COLUMNA CARTA: SOLO IMAGEN */}
+                      {/* Columna carta: solo imagen pequeña */}
                       <td className="px-4 py-2">
                         <div className="flex items-center">
                           <img
@@ -255,31 +354,27 @@ export default function MisVentas() {
                         </div>
                       </td>
 
-                      {/* COLUMNA VENDEDOR */}
+                      {/* Columna vendedor */}
                       <td className="px-4 py-2 text-sm text-gray-800">
                         {vendedorNombre}
                       </td>
 
-                      {/* COLUMNA PRECIO */}
+                      {/* Columna precio total */}
                       <td className="px-4 py-2 font-bold text-sm">
                         €{Number(venta.precio_total).toFixed(2)}
                       </td>
 
-                      {/* COLUMNA FECHA */}
+                      {/* Columna fecha */}
                       <td className="px-4 py-2 text-sm text-gray-700">
                         {venta.fecha_venta
-                          ? new Date(
-                              venta.fecha_venta
-                            ).toLocaleDateString()
+                          ? new Date(venta.fecha_venta).toLocaleDateString()
                           : "-"}
                       </td>
 
-                      {/* COLUMNA ACCIONES */}
+                      {/* Acciones: valorar solo si cumple reglas */}
                       <td className="px-4 py-2">
                         {valorada ? (
-                          <span className="text-xs text-gray-500">
-                            Ya valorado
-                          </span>
+                          <span className="text-xs text-gray-500">Ya valorado</span>
                         ) : !puedeValorar ? (
                           <span className="text-xs text-gray-400">
                             Valoración no disponible
@@ -300,7 +395,7 @@ export default function MisVentas() {
             </table>
           </div>
 
-          {/* MODAL DE VALORACIÓN */}
+          {/* Modal de valoración */}
           {modalAbierto && ventaSeleccionada && (
             <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
               <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6 space-y-4">
@@ -309,7 +404,7 @@ export default function MisVentas() {
                 </h2>
 
                 <p className="text-sm text-gray-600">
-                  Estás valorando a{" "}
+                  Valoración para{" "}
                   <span className="font-semibold">
                     {getNombreVendedor(ventaSeleccionada)}
                   </span>{" "}

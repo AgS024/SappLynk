@@ -1,19 +1,39 @@
 // react/src/views/Perfil.jsx
+
+// Hooks:
+// - useState: estado local del componente
+// - useEffect: cargar datos al montar la vista
 import { useEffect, useState } from "react";
+
+// Layout común con header + contenedor
 import PageComponent from "../shared/components/PageComponent.jsx";
+
+// Cliente Axios configurado (baseURL, token, etc.)
 import axiosClient from "../axios.js";
+
+// Iconos (Heroicons)
 import { UserIcon, StarIcon } from "@heroicons/react/24/solid";
+
+// Contexto global (usuario autenticado)
 import { useStateContext } from "../Contexts/ContextProvider.jsx";
 
-// ⭐ Una estrella que se rellena según 'fill' (0 = vacía, 1 = llena, 0.5 = media, etc.)
+/**
+ * Star
+ * Dibuja una estrella con relleno parcial en función de `fill`:
+ * - 0   -> vacía
+ * - 1   -> llena
+ * - 0.5 -> media estrella (relleno al 50%)
+ */
 function Star({ fill }) {
+  // Clamp para asegurar el rango [0, 1]
   const clamped = Math.max(0, Math.min(1, Number(fill) || 0));
 
   return (
     <div className="relative h-5 w-5">
-      {/* Fondo gris */}
+      {/* Estrella base (gris) */}
       <StarIcon className="h-5 w-5 text-gray-300" />
-      {/* Capa amarilla recortada según porcentaje */}
+
+      {/* Capa amarilla, recortada según el porcentaje */}
       <div
         className="absolute top-0 left-0 overflow-hidden h-5"
         style={{ width: `${clamped * 100}%` }}
@@ -25,10 +45,13 @@ function Star({ fill }) {
 }
 
 export default function Perfil() {
-  // ⚠️ Este perfil muestra al usuario autenticado (GET /user)
+  // Perfil del usuario autenticado (GET /user)
   const { currentUser, setCurrentUser } = useStateContext();
 
+  // Datos completos del usuario
   const [usuario, setUsuario] = useState(null);
+
+  // Formulario editable del perfil
   const [form, setForm] = useState({
     name: "",
     email: "",
@@ -38,42 +61,66 @@ export default function Perfil() {
     cp: "",
   });
 
+  // Valoraciones recibidas por el usuario (GET /valoraciones)
   const [valoraciones, setValoraciones] = useState([]);
-  const [valoracionMedia5, setValoracionMedia5] = useState(0); // escala 0–5
 
+  // Media de valoraciones en escala 0–5 (las valoraciones vienen 0–10)
+  const [valoracionMedia5, setValoracionMedia5] = useState(0);
+
+  // Métricas rápidas del perfil
   const [cartasEnVentaCount, setCartasEnVentaCount] = useState(0);
   const [comprasCount, setComprasCount] = useState(0);
 
+  // Estados de UI
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState(null);
   const [saveError, setSaveError] = useState(null);
 
+  // Cargar todo al montar la vista
   useEffect(() => {
     cargarPerfil();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  /**
+   * cargarPerfil
+   *
+   * Carga en paralelo:
+   * - usuario autenticado (/user)
+   * - valoraciones recibidas (/valoraciones)
+   * - publicaciones del usuario (/enventa/mias)
+   * - compras realizadas (/ventas)
+   *
+   * Después:
+   * - rellena el formulario
+   * - calcula media 0–5
+   * - actualiza stats
+   */
   const cargarPerfil = () => {
     setLoading(true);
     setSaveMessage(null);
     setSaveError(null);
 
     Promise.all([
-      axiosClient.get("/user"), // usuario autenticado
-      axiosClient.get("/valoraciones"), // valoraciones recibidas
-      axiosClient.get("/enventa/mias"), // cartas en venta del usuario
-      axiosClient.get("/ventas"), // compras realizadas
+      axiosClient.get("/user"),
+      axiosClient.get("/valoraciones"),
+      axiosClient.get("/enventa/mias"),
+      axiosClient.get("/ventas"),
     ])
       .then(([resUser, resValoraciones, resEnVenta, resVentas]) => {
         const user = resUser.data;
+
         const vals = Array.isArray(resValoraciones.data)
           ? resValoraciones.data
           : [];
 
         setUsuario(user);
+
+        // Sincroniza el user en contexto (si existe setter)
         setCurrentUser && setCurrentUser(user);
 
+        // Rellenar form
         setForm({
           name: user.name || "",
           email: user.email || "",
@@ -83,24 +130,24 @@ export default function Perfil() {
           cp: user.cp || "",
         });
 
+        // Guardar valoraciones
         setValoraciones(vals);
 
-        // 🧮 Calcular media sobre 5 (las valoraciones vienen 0–10 → /2)
+        // Media (0–10 -> 0–5)
         if (vals.length > 0) {
           const suma = vals.reduce((acc, v) => acc + (v.valor || 0), 0);
-          const media10 = suma / vals.length; // escala 0–10
-          const media5 = media10 / 2; // escala 0–5
+          const media10 = suma / vals.length;
+          const media5 = media10 / 2;
           setValoracionMedia5(Number(media5.toFixed(2)));
         } else {
           setValoracionMedia5(0);
         }
 
+        // Stats de la derecha
         setCartasEnVentaCount(
           Array.isArray(resEnVenta.data) ? resEnVenta.data.length : 0
         );
-        setComprasCount(
-          Array.isArray(resVentas.data) ? resVentas.data.length : 0
-        );
+        setComprasCount(Array.isArray(resVentas.data) ? resVentas.data.length : 0);
       })
       .catch((err) => {
         console.error("Error cargando perfil:", err);
@@ -108,14 +155,19 @@ export default function Perfil() {
       .finally(() => setLoading(false));
   };
 
+  /**
+   * handleInputChange
+   * Actualiza el estado `form` para inputs controlados.
+   */
   const handleInputChange = (e) => {
     const { name, value } = e.target;
-    setForm((prev) => ({
-      ...prev,
-      [name]: value,
-    }));
+    setForm((prev) => ({ ...prev, [name]: value }));
   };
 
+  /**
+   * handleGuardarPerfil
+   * PUT /user con datos editables (email es solo lectura).
+   */
   const handleGuardarPerfil = (e) => {
     e.preventDefault();
     setSaving(true);
@@ -125,7 +177,6 @@ export default function Perfil() {
     axiosClient
       .put("/user", {
         name: form.name,
-        // email lo dejamos de momento solo lectura (no lo cambiamos aquí)
         direccion: form.direccion,
         provincia: form.provincia,
         ciudad: form.ciudad,
@@ -133,6 +184,7 @@ export default function Perfil() {
       })
       .then((res) => {
         const updatedUser = res.data;
+
         setUsuario(updatedUser);
         setCurrentUser && setCurrentUser(updatedUser);
         setSaveMessage("✅ Datos guardados correctamente.");
@@ -140,17 +192,15 @@ export default function Perfil() {
       .catch((err) => {
         console.error("Error actualizando perfil:", err);
         const msg =
-          err.response?.data?.message ||
-          "No se han podido guardar los cambios.";
+          err.response?.data?.message || "No se han podido guardar los cambios.";
         setSaveError(msg);
       })
       .finally(() => setSaving(false));
   };
 
   /**
-   * ⭐ Renderiza estrellas en escala 0–5 con relleno parcial.
-   *   rating5 = 0 → 0 llenas
-   *   rating5 = 3.4 → 3 llenas + 0.4 de la 4ª
+   * renderStars
+   * Convierte un rating (0–5) a 5 estrellas con relleno parcial.
    */
   const renderStars = (rating5) => {
     let r = Number(rating5) || 0;
@@ -160,21 +210,14 @@ export default function Perfil() {
     const stars = [];
 
     for (let i = 0; i < 5; i++) {
-      const starMin = i; // inicio del rango de esta estrella
-      const starMax = i + 1; // final del rango
+      const starMin = i;
+      const starMax = i + 1;
 
       let fill = 0;
 
-      if (r >= starMax) {
-        // estrella completamente llena
-        fill = 1;
-      } else if (r <= starMin) {
-        // estrella vacía
-        fill = 0;
-      } else {
-        // parte fraccionaria dentro de esta estrella
-        fill = r - starMin; // ej: rating=3.4, i=3 → 0.4
-      }
+      if (r >= starMax) fill = 1; // llena
+      else if (r <= starMin) fill = 0; // vacía
+      else fill = r - starMin; // parcial
 
       stars.push(<Star key={i} fill={fill} />);
     }
@@ -182,6 +225,7 @@ export default function Perfil() {
     return stars;
   };
 
+  // Loading
   if (loading || !usuario) {
     return (
       <PageComponent title="Perfil">
@@ -193,12 +237,13 @@ export default function Perfil() {
   return (
     <PageComponent title="Mi Perfil">
       <div className="space-y-8">
-        {/* HEADER PERFIL */}
+        {/* CABECERA PERFIL: avatar + nombre + email + media */}
         <div className="flex flex-col md:flex-row items-center md:items-start md:space-x-6 p-6 bg-white rounded-lg shadow">
           <div className="flex items-center justify-center mb-4 md:mb-0">
             <div className="relative">
               <UserIcon className="h-20 w-20 text-gray-400 bg-gray-200 rounded-full p-3" />
-              {/* Badge con inicial */}
+
+              {/* Badge con inicial del usuario */}
               <div className="absolute -bottom-1 -right-1 bg-red-600 text-white text-xs font-bold px-2 py-1 rounded-full">
                 {usuario.name?.charAt(0)?.toUpperCase() || "U"}
               </div>
@@ -206,16 +251,15 @@ export default function Perfil() {
           </div>
 
           <div className="flex-1 text-center md:text-left">
-            <h1 className="text-3xl font-bold text-gray-900">
-              {usuario.name}
-            </h1>
+            <h1 className="text-3xl font-bold text-gray-900">{usuario.name}</h1>
             <p className="text-gray-600">{usuario.email}</p>
 
-            {/* Valoración Media */}
+            {/* Valoración media */}
             <div className="flex flex-col sm:flex-row sm:items-center sm:space-x-3 mt-4">
               <div className="flex items-center justify-center sm:justify-start gap-1">
                 {renderStars(valoracionMedia5)}
               </div>
+
               <div className="mt-2 sm:mt-0 flex items-center justify-center sm:justify-start gap-2">
                 <span className="font-bold text-lg text-gray-900">
                   {valoracionMedia5.toFixed(2)}/5
@@ -229,13 +273,12 @@ export default function Perfil() {
           </div>
         </div>
 
-        {/* BLOQUE: DATOS PERSONALES / FORMULARIO */}
+        {/* DATOS + STATS */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Formulario a la izquierda (2/3) */}
+          {/* Formulario (2/3) */}
           <div className="lg:col-span-2 bg-white rounded-lg shadow p-6">
-            <h2 className="text-xl font-bold mb-4 text-gray-900">
-              Mis datos
-            </h2>
+            <h2 className="text-xl font-bold mb-4 text-gray-900">Mis datos</h2>
+
             <form onSubmit={handleGuardarPerfil} className="space-y-4">
               {/* Nombre y email */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -251,6 +294,7 @@ export default function Perfil() {
                     className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-red-500 text-sm"
                   />
                 </div>
+
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-1">
                     Email
@@ -264,7 +308,7 @@ export default function Perfil() {
                   />
                   <p className="mt-1 text-xs text-gray-400">
                     El email se usa para iniciar sesión. Si quieres cambiarlo,
-                    háblanos o implementa un flujo de cambio de email aparte.
+                    implementa un flujo de cambio de email aparte.
                   </p>
                 </div>
               </div>
@@ -298,6 +342,7 @@ export default function Perfil() {
                     className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-red-500 text-sm"
                   />
                 </div>
+
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-1">
                     Ciudad
@@ -310,6 +355,7 @@ export default function Perfil() {
                     className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-red-500 text-sm"
                   />
                 </div>
+
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-1">
                     Código Postal
@@ -324,14 +370,11 @@ export default function Perfil() {
                 </div>
               </div>
 
-              {/* Mensajes de feedback */}
-              {saveMessage && (
-                <p className="text-sm text-green-600">{saveMessage}</p>
-              )}
-              {saveError && (
-                <p className="text-sm text-red-600">{saveError}</p>
-              )}
+              {/* Mensajes */}
+              {saveMessage && <p className="text-sm text-green-600">{saveMessage}</p>}
+              {saveError && <p className="text-sm text-red-600">{saveError}</p>}
 
+              {/* Botón */}
               <div className="flex justify-end">
                 <button
                   type="submit"
@@ -344,20 +387,18 @@ export default function Perfil() {
             </form>
           </div>
 
-          {/* Stats a la derecha (1/3) */}
+          {/* Stats (1/3) */}
           <div className="space-y-4">
             <div className="p-4 bg-white rounded-lg shadow text-center">
               <p className="text-gray-600 text-sm mb-1">Cartas en venta</p>
-              <p className="text-3xl font-bold text-red-600">
-                {cartasEnVentaCount}
-              </p>
+              <p className="text-3xl font-bold text-red-600">{cartasEnVentaCount}</p>
             </div>
+
             <div className="p-4 bg-white rounded-lg shadow text-center">
               <p className="text-gray-600 text-sm mb-1">Compras realizadas</p>
-              <p className="text-3xl font-bold text-green-600">
-                {comprasCount}
-              </p>
+              <p className="text-3xl font-bold text-green-600">{comprasCount}</p>
             </div>
+
             <div className="p-4 bg-white rounded-lg shadow text-center">
               <p className="text-gray-600 text-sm mb-1">Valoración media</p>
               <p className="text-3xl font-bold text-yellow-500">
@@ -367,7 +408,7 @@ export default function Perfil() {
           </div>
         </div>
 
-        {/* VALORACIONES RECIBIDAS */}
+        {/* LISTA DE VALORACIONES RECIBIDAS */}
         <div className="p-6 bg-white rounded-lg shadow">
           <h2 className="text-2xl font-bold mb-6 text-gray-900">
             Valoraciones recibidas ({valoraciones.length})
@@ -380,14 +421,13 @@ export default function Perfil() {
           ) : (
             <div className="space-y-4">
               {valoraciones.map((val) => {
-                const nota5 = (val.valor || 0) / 2; // 0–10 → 0–5
+                const nota5 = (val.valor || 0) / 2;
 
                 return (
                   <div
                     key={val.id}
                     className="border-l-4 border-yellow-400 pl-4 py-3 bg-gray-50 rounded"
                   >
-                    {/* Stars para esta valoración concreta */}
                     <div className="flex items-center gap-2 mb-2">
                       {renderStars(nota5)}
                       <span className="font-bold text-gray-900">
@@ -395,14 +435,10 @@ export default function Perfil() {
                       </span>
                     </div>
 
-                    {/* Comentario */}
                     {val.descripcion && (
-                      <p className="text-gray-700 italic mb-2">
-                        "{val.descripcion}"
-                      </p>
+                      <p className="text-gray-700 italic mb-2">"{val.descripcion}"</p>
                     )}
 
-                    {/* Info valorador */}
                     <div className="text-xs text-gray-600">
                       <p>
                         <span className="font-semibold">Por:</span>{" "}
@@ -411,9 +447,7 @@ export default function Perfil() {
                       <p>
                         <span className="font-semibold">Fecha:</span>{" "}
                         {val.created_at
-                          ? new Date(
-                              val.created_at
-                            ).toLocaleDateString("es-ES")
+                          ? new Date(val.created_at).toLocaleDateString("es-ES")
                           : "-"}
                       </p>
                     </div>

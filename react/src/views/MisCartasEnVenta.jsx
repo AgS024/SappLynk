@@ -1,32 +1,64 @@
 // react/src/views/MisCartasEnVenta.jsx
+
+// Hooks de React:
+// - useState: guardar estado local (publicaciones, loading, precios editados, confirmación)
+// - useEffect: cargar datos al entrar en la vista
 import { useEffect, useState } from "react";
+
+// Componente de layout (título + contenedor)
 import PageComponent from "../shared/components/PageComponent.jsx";
+
+// Cliente Axios para llamadas al backend
 import axiosClient from "../axios.js";
+
+// Contexto global:
+// - setCartasEnVenta: guardar el listado en el contexto por si se usa en otras pantallas
 import { useStateContext } from "../Contexts/ContextProvider.jsx";
 
 export default function MisCartasEnVenta() {
+  // Listado de publicaciones propias activas (GET /enventa/mias)
   const [publicaciones, setPublicaciones] = useState([]);
+
+  // Indicador de carga mientras se consulta el backend
   const [loading, setLoading] = useState(false);
+
+  // Estado auxiliar para edición de precios:
+  // se guarda un “diccionario” { [idPublicacion]: nuevoPrecioEnString/Number }
+  // para permitir escribir en el input sin pisar el valor original hasta guardar.
   const [preciosEdit, setPreciosEdit] = useState({});
+
+  // Setter del contexto global para sincronizar el listado de cartas en venta
   const { setCartasEnVenta } = useStateContext();
 
-  // 🆕 id de la publicación para la que estamos pidiendo confirmación de retirada
+  // Id de la publicación que está en modo “confirmación de retirada”.
+  // Solo una publicación puede estar confirmándose a la vez.
   const [pubIdConfirm, setPubIdConfirm] = useState(null);
 
+  // Carga inicial al montar la pantalla
   useEffect(() => {
     cargarMisPublicaciones();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  /**
+   * cargarMisPublicaciones
+   *
+   * Pide al backend las publicaciones del usuario autenticado.
+   * Se guardan en estado local para renderizar, y también en contexto si interesa reutilizarlas.
+   */
   const cargarMisPublicaciones = () => {
     setLoading(true);
+
     axiosClient
       .get("/enventa/mias")
       .then((res) => {
         console.log("Mis cartas en venta:", res.data);
-        setPublicaciones(res.data);
+
+        const data = Array.isArray(res.data) ? res.data : [];
+        setPublicaciones(data);
+
         if (setCartasEnVenta) {
-          setCartasEnVenta(res.data);
+          setCartasEnVenta(data);
         }
       })
       .catch((err) => {
@@ -36,6 +68,12 @@ export default function MisCartasEnVenta() {
       .finally(() => setLoading(false));
   };
 
+  /**
+   * handlePrecioChange
+   *
+   * Actualiza el precio “temporal” de una publicación concreta.
+   * No se guarda en backend hasta pulsar “Guardar precio”.
+   */
   const handlePrecioChange = (id, valor) => {
     setPreciosEdit((prev) => ({
       ...prev,
@@ -43,12 +81,19 @@ export default function MisCartasEnVenta() {
     }));
   };
 
+  /**
+   * handleGuardarPrecio
+   *
+   * Valida el precio introducido y lo envía al backend.
+   * Si la API responde con la publicación actualizada, se reemplaza esa publicación en el listado local.
+   */
   const handleGuardarPrecio = (pub) => {
     console.log("Click en GUARDAR PRECIO para:", pub);
 
     const nuevoPrecioStr = preciosEdit[pub.id] ?? pub.precio;
     const nuevoPrecio = Number(nuevoPrecioStr);
 
+    // Validación mínima para evitar valores inválidos
     if (isNaN(nuevoPrecio) || nuevoPrecio <= 0) {
       alert("Introduce un precio válido mayor que 0.");
       return;
@@ -58,12 +103,16 @@ export default function MisCartasEnVenta() {
       .put(`/enventa/${pub.id}`, { precio: nuevoPrecio })
       .then((res) => {
         console.log("Respuesta actualización precio:", res.data);
+
+        // Según cómo responda el backend, puede venir { en_venta: ... } o el objeto directo
         const actualizada = res.data.en_venta ?? res.data;
 
+        // Actualización inmutable del array: solo se cambia la publicación editada
         setPublicaciones((prev) =>
           prev.map((p) => (p.id === pub.id ? { ...p, ...actualizada } : p))
         );
 
+        // Se sincroniza el input con el valor guardado
         setPreciosEdit((prev) => ({
           ...prev,
           [pub.id]: actualizada.precio,
@@ -75,13 +124,24 @@ export default function MisCartasEnVenta() {
       });
   };
 
-  // 🆕 Primer click: marcar esta publicación como "en confirmación"
+  /**
+   * handleRetirarClick
+   *
+   * Primer click en “Retirar”:
+   * activa el modo confirmación para esa publicación (no se llama todavía a la API).
+   */
   const handleRetirarClick = (pub) => {
     console.log("Primer click en RETIRAR para:", pub);
     setPubIdConfirm(pub.id);
   };
 
-  // 🆕 Segundo click: ejecutar la retirada de verdad
+  /**
+   * handleConfirmarRetirada
+   *
+   * Segundo paso:
+   * realiza el DELETE en backend y, si va bien, elimina la publicación del listado local.
+   * La lógica de “devolver 1 copia a colección” se asume en el backend.
+   */
   const handleConfirmarRetirada = (pub) => {
     console.log("Confirmando retirada para:", pub);
 
@@ -89,7 +149,11 @@ export default function MisCartasEnVenta() {
       .delete(`/enventa/${pub.id}`)
       .then((res) => {
         console.log("Carta retirada correctamente:", res.data);
+
+        // Se quita del listado local para reflejar cambios al instante
         setPublicaciones((prev) => prev.filter((p) => p.id !== pub.id));
+
+        // Se cierra el modo confirmación
         setPubIdConfirm(null);
       })
       .catch((err) => {
@@ -99,12 +163,17 @@ export default function MisCartasEnVenta() {
       });
   };
 
+  /**
+   * handleCancelarRetirada
+   *
+   * Sale del modo confirmación sin hacer cambios.
+   */
   const handleCancelarRetirada = () => {
     console.log("Cancelando retirada");
     setPubIdConfirm(null);
   };
 
-  // Imagen TCG
+  // Helpers para obtener datos TCG (imagen / nombre / set) de forma tolerante
   const getImageUrl = (pub) => {
     const tcg = pub.tcgdex || pub.carta || {};
     return (
@@ -142,26 +211,28 @@ export default function MisCartasEnVenta() {
 
   return (
     <PageComponent title="Mis cartas en venta">
+      {/* Estado de carga */}
       {loading ? (
         <div className="text-center py-12">
-          <p className="text-gray-500 text-lg">
-            ⏳ Cargando tus cartas en venta...
-          </p>
+          <p className="text-gray-500 text-lg">⏳ Cargando tus cartas en venta...</p>
         </div>
       ) : publicaciones.length === 0 ? (
+        // Estado vacío
         <div className="text-center py-12">
           <p className="text-gray-500 text-lg">
-            📭 Ahora mismo no tienes cartas en venta.
+            📭 Ahora mismo no hay cartas publicadas en venta.
           </p>
         </div>
       ) : (
+        // Grid de publicaciones propias
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {publicaciones.map((pub) => {
+            // Precio mostrado en input:
+            // si existe precio editado para esa publicación, se usa ese; si no, el del backend
             const precioActual =
-              preciosEdit[pub.id] !== undefined
-                ? preciosEdit[pub.id]
-                : pub.precio;
+              preciosEdit[pub.id] !== undefined ? preciosEdit[pub.id] : pub.precio;
 
+            // Solo la publicación cuyo id coincide entra en modo confirmación
             const enConfirmacion = pubIdConfirm === pub.id;
 
             return (
@@ -169,6 +240,7 @@ export default function MisCartasEnVenta() {
                 key={pub.id}
                 className="bg-white rounded-lg shadow-md overflow-hidden flex flex-col"
               >
+                {/* Imagen */}
                 <div className="bg-gray-100 h-64 flex items-center justify-center">
                   <img
                     src={getImageUrl(pub)}
@@ -181,14 +253,13 @@ export default function MisCartasEnVenta() {
                   />
                 </div>
 
+                {/* Info + acciones */}
                 <div className="p-4 flex-1 flex flex-col justify-between">
                   <div>
                     <h3 className="font-bold text-sm truncate text-gray-900">
                       {getNombreCarta(pub)}
                     </h3>
-                    <p className="text-gray-600 text-xs mt-1">
-                      {getSetName(pub)}
-                    </p>
+                    <p className="text-gray-600 text-xs mt-1">{getSetName(pub)}</p>
                     <p className="text-gray-600 text-xs mt-1">
                       Grado:{" "}
                       <span className="font-semibold">
@@ -198,6 +269,7 @@ export default function MisCartasEnVenta() {
                   </div>
 
                   <div className="mt-4 space-y-2">
+                    {/* Edición de precio */}
                     <div>
                       <label className="block text-xs font-semibold text-gray-700 mb-1">
                         Precio (€)
@@ -207,19 +279,17 @@ export default function MisCartasEnVenta() {
                         min="0"
                         step="0.01"
                         value={precioActual}
-                        onChange={(e) =>
-                          handlePrecioChange(pub.id, e.target.value)
-                        }
+                        onChange={(e) => handlePrecioChange(pub.id, e.target.value)}
                         className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:border-red-600 focus:outline-none text-sm"
                       />
                     </div>
 
-                    {/* Bloque de botones con confirmación interna */}
+                    {/* Confirmación de retirada sin modal externo: se cambia el bloque de botones */}
                     {enConfirmacion ? (
                       <div className="flex flex-col gap-2 mt-2">
                         <p className="text-xs text-gray-700">
-                          ¿Seguro que quieres retirar esta carta de la venta?
-                          Se devolverá 1 copia a tu colección.
+                          ¿Seguro que quieres retirar esta carta de la venta? Al retirarla,
+                          se devuelve 1 copia a la colección.
                         </p>
                         <div className="flex gap-2">
                           <button
@@ -257,9 +327,10 @@ export default function MisCartasEnVenta() {
                       </div>
                     )}
 
+                    {/* Texto de ayuda cuando no está en confirmación */}
                     {!enConfirmacion && (
                       <p className="text-xs text-gray-500 mt-1">
-                        Al retirar la carta, se devolverá 1 copia a tu colección.
+                        Al retirar la carta, se devuelve 1 copia a la colección.
                       </p>
                     )}
                   </div>

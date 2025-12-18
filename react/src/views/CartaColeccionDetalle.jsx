@@ -1,28 +1,85 @@
 // react/src/views/CartaColeccionDetalle.jsx
+
+// Hooks de React:
+// - useState: gestionar estado local (carga, errores, formulario y datos de la entrada)
+// - useEffect: cargar datos al entrar a la vista o cuando cambia el id de la carta
 import { useEffect, useState } from "react";
+
+// React Router:
+// - useParams: leer el parámetro de ruta (coleccionId)
+// - useNavigate: navegar de forma programática (volver a /coleccion, etc.)
 import { useParams, useNavigate } from "react-router-dom";
+
+// Componente de layout común: pinta cabecera con título y contenedor de contenido
 import PageComponent from "../shared/components/PageComponent.jsx";
+
+// Cliente Axios ya configurado con baseURL + token (Sanctum) para hablar con el backend
 import axiosClient from "../axios.js";
+
+// Contexto global de la app: mantiene coleccion en memoria para evitar recargas constantes
 import { useStateContext } from "../Contexts/ContextProvider.jsx";
 
 export default function CartaColeccionDetalle() {
-  // OJO: aquí viene el id de la carta (ej: "bw8-3"), no un id numérico
+  /**
+   * coleccionId:
+   * - En esta vista NO es un id numérico interno.
+   * - Es el id real de TCGdex / carta (por ejemplo: "bw8-3").
+   * Se usa directamente en las rutas del backend:
+   *   GET    /coleccion/carta/{id_carta}
+   *   PUT    /coleccion/carta/{id_carta}
+   *   DELETE /coleccion/carta/{id_carta}/grado/{id_grado}
+   */
   const { coleccionId } = useParams();
+
+  // Navegación a otras pantallas sin recargar la app
   const navigate = useNavigate();
 
+  /**
+   * Estado global (ContextProvider):
+   * - coleccion: array con las entradas de colección ya cargadas en memoria
+   * - setColeccion: permite sincronizar cambios (editar / eliminar) sin pedirlo todo otra vez
+   */
   const { coleccion, setColeccion } = useStateContext();
 
+  /**
+   * entrada:
+   * - es la fila concreta de la tabla "coleccion" devuelta por el backend
+   * - viene enriquecida con "tcgdex" en el controlador (info completa de la carta)
+   */
   const [entrada, setEntrada] = useState(null);
+
+  // Estados de UI: loading y error para controlar mensajes de pantalla
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
+  /**
+   * Estados del "formulario" (edición de colección):
+   * - cantidad: copias en colección
+   * - idGrado: condición/grado asociado a la entrada
+   * - notas: texto libre
+   *
+   * Importante:
+   * - En la BD la PK es compuesta (id_usuario, id_carta, id_grado).
+   * - En esta vista se editan campos de esa entrada.
+   */
   const [cantidad, setCantidad] = useState(1);
   const [idGrado, setIdGrado] = useState(1);
   const [notas, setNotas] = useState("");
 
+  /**
+   * Estados relacionados con publicar en venta:
+   * - precioVenta: input del precio unitario
+   * - saving: bandera de "operación en curso" (bloquea botones y evita dobles clicks)
+   */
   const [precioVenta, setPrecioVenta] = useState("");
   const [saving, setSaving] = useState(false);
 
+  /**
+   * useEffect: carga inicial
+   *
+   * Al entrar a la pantalla, si coleccionId existe, se pide al backend la entrada de colección.
+   * Si falta el parámetro, se muestra error y se termina la carga.
+   */
   useEffect(() => {
     if (!coleccionId) {
       setError("No se ha proporcionado un identificador de carta válido.");
@@ -32,6 +89,22 @@ export default function CartaColeccionDetalle() {
     cargarEntrada();
   }, [coleccionId]);
 
+  /**
+   * sincronizarEnContexto
+   *
+   * Mantiene coherente el estado global "coleccion" después de:
+   * - cargar la entrada
+   * - actualizarla desde el formulario
+   *
+   * Estrategia:
+   * - si el contexto está vacío, se crea con esa entrada
+   * - si no existe la carta, se añade
+   * - si ya existe, se reemplaza solo la que coincide por id_carta
+   *
+   * Nota:
+   * - si se guardan varias filas por carta (por grados distintos), lo correcto sería
+   *   comparar también id_grado. Aquí se está simplificando a id_carta.
+   */
   const sincronizarEnContexto = (nuevaEntrada) => {
     if (!nuevaEntrada || !nuevaEntrada.id_carta) return;
 
@@ -43,21 +116,24 @@ export default function CartaColeccionDetalle() {
       const existe = prev.some((c) => c.id_carta === nuevaEntrada.id_carta);
 
       if (!existe) {
-        // La añadimos al final si no estaba
         return [...prev, nuevaEntrada];
       }
 
-      // Actualizamos SOLO la carta con ese id_carta
       return prev.map((c) =>
         c.id_carta === nuevaEntrada.id_carta ? nuevaEntrada : c
       );
     });
   };
 
+  /**
+   * eliminarDeContexto
+   *
+   * Borra una entrada del estado global de colección.
+   * Si hay varias filas por carta (distinto grado), se filtra por (id_carta + id_grado).
+   */
   const eliminarDeContexto = (idCarta, grado) => {
     setColeccion((prev) => {
       if (!Array.isArray(prev)) return [];
-      // si en el contexto guardas varias filas por carta (distinto grado), aquí podrías filtrar por ambos
       return prev.filter((c) => {
         if (grado != null && typeof c.id_grado !== "undefined") {
           return !(c.id_carta === idCarta && c.id_grado === grado);
@@ -67,6 +143,15 @@ export default function CartaColeccionDetalle() {
     });
   };
 
+  /**
+   * cargarEntrada
+   *
+   * GET /coleccion/carta/{id_carta}
+   *
+   * - Carga desde el backend la entrada de colección para esa carta.
+   * - Rellena los estados del formulario con los valores recibidos.
+   * - Sincroniza en el contexto global para que la lista de /coleccion quede actualizada.
+   */
   const cargarEntrada = () => {
     setLoading(true);
     setError(null);
@@ -88,10 +173,25 @@ export default function CartaColeccionDetalle() {
       .finally(() => setLoading(false));
   };
 
+  /**
+   * tcg:
+   * Normalización del objeto carta para que la vista funcione aunque los datos vengan
+   * con distintas formas (entrada.tcgdex, entrada.data, etc.)
+   */
   const tcg =
     entrada?.tcgdex || entrada?.data || entrada?.carta || entrada || {};
+
+  // Nombre visible de la carta
   const nombreCarta = tcg.name || entrada?.nombre || "Carta sin nombre";
 
+  /**
+   * getImageUrl
+   *
+   * Devuelve la mejor imagen disponible en este orden:
+   * - tcg.images.small (formato moderno)
+   * - tcg.image.normal / entrada.image / tcg.image (formatos alternativos)
+   * - placeholder si no hay imagen
+   */
   const getImageUrl = () => {
     return (
       tcg.images?.small ||
@@ -102,6 +202,14 @@ export default function CartaColeccionDetalle() {
     );
   };
 
+  /**
+   * getSetName
+   *
+   * Intenta resolver el nombre del set:
+   * - Primero desde el objeto set (si viene completo, incluso multi-idioma).
+   * - Si no, intenta inferirlo del id de la carta (parte antes del guion, ej: "bw8" en "bw8-3").
+   * - Si no se puede, devuelve "Set desconocido".
+   */
   const getSetName = () => {
     const setObj =
       tcg.set || entrada?.tcgdex?.set || entrada?.carta?.set || entrada?.set;
@@ -127,6 +235,20 @@ export default function CartaColeccionDetalle() {
     return "Set desconocido";
   };
 
+  /**
+   * handleGuardarCambios
+   *
+   * PUT /coleccion/carta/{id_carta}
+   *
+   * Actualiza la entrada de colección con los valores del formulario:
+   * - id_grado
+   * - cantidad
+   * - notas
+   *
+   * Caso especial:
+   * - si la cantidad queda en 0 o menos, el backend elimina la entrada,
+   *   y la UI limpia el contexto y vuelve a /coleccion.
+   */
   const handleGuardarCambios = () => {
     if (!entrada) return;
     setSaving(true);
@@ -154,21 +276,28 @@ export default function CartaColeccionDetalle() {
       .finally(() => setSaving(false));
   };
 
+  /**
+   * handleEliminar
+   *
+   * DELETE /coleccion/carta/{id_carta}/grado/{id_grado}
+   *
+   * Elimina solo UNA fila concreta de la colección:
+   * - la de esa carta y ese grado
+   *
+   * Después:
+   * - se borra del contexto global
+   * - se vuelve al listado /coleccion
+   */
   const handleEliminar = (e) => {
     e.preventDefault();
 
-    console.log("Click en ELIMINAR", { coleccionId, idGrado, entrada });
-
     setSaving(true);
 
-    // ✅ Usamos la ruta nueva con carta + grado
     const url = `/coleccion/carta/${coleccionId}/grado/${idGrado}`;
-    console.log("DELETE URL:", url);
 
     axiosClient
       .delete(url)
-      .then((res) => {
-        console.log("Respuesta DELETE /coleccion/carta/...:", res);
+      .then(() => {
         eliminarDeContexto(entrada?.id_carta ?? coleccionId, idGrado);
         navigate("/coleccion");
       })
@@ -179,6 +308,25 @@ export default function CartaColeccionDetalle() {
       .finally(() => setSaving(false));
   };
 
+  /**
+   * handlePonerEnVenta
+   *
+   * Publica UNA copia en el marketplace y ajusta la colección:
+   *
+   * 1) POST /enventa
+   *    - crea una publicación activa con precio y grado
+   *
+   * 2) Ajuste local:
+   *    - se resta 1 a "cantidad"
+   *
+   * 3) Persistencia en backend:
+   *    - si la cantidad llega a 0: se borra la fila (DELETE carta+grado)
+   *    - si quedan copias: se actualiza la cantidad (PUT /coleccion/carta/{id})
+   *
+   * Nota:
+   * - En el payload se envía cantidad: 1 porque cada publicación representa una copia.
+   * - El backend, además, valida que exista stock en colección antes de publicar.
+   */
   const handlePonerEnVenta = () => {
     if (!entrada) return;
 
@@ -196,7 +344,7 @@ export default function CartaColeccionDetalle() {
     const payloadVenta = {
       id_carta: entrada.id_carta ?? coleccionId,
       id_grado: idGrado,
-      cantidad: 1, // ponemos en venta UNA copia
+      cantidad: 1, // publicación de UNA copia
       precio: Number(precioVenta),
     };
 
@@ -206,14 +354,12 @@ export default function CartaColeccionDetalle() {
         const nuevaCantidad = cantidad - 1;
 
         if (nuevaCantidad <= 0) {
-          // si se queda a 0, eliminamos de colección (carta + grado)
           const url = `/coleccion/carta/${coleccionId}/grado/${idGrado}`;
           return axiosClient.delete(url).then(() => {
             eliminarDeContexto(entrada.id_carta ?? coleccionId, idGrado);
             navigate("/coleccion");
           });
         } else {
-          // si aún quedan, actualizamos cantidad
           return axiosClient
             .put(`/coleccion/carta/${coleccionId}`, {
               id_grado: idGrado,
@@ -235,6 +381,12 @@ export default function CartaColeccionDetalle() {
       .finally(() => setSaving(false));
   };
 
+  /**
+   * Render condicional:
+   * - mientras carga: mensaje simple
+   * - si hay error o no existe entrada: mensaje de error
+   * - si todo va bien: pantalla con imagen + formulario de edición + bloque de venta
+   */
   if (loading) {
     return (
       <PageComponent title="Detalle de carta">
@@ -254,7 +406,7 @@ export default function CartaColeccionDetalle() {
   return (
     <PageComponent title="Detalle de tu carta">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-        {/* Columna izquierda: imagen + info básica */}
+        {/* Columna izquierda: imagen + nombre + set */}
         <div className="flex flex-col items-center">
           <img
             src={getImageUrl()}
@@ -271,14 +423,15 @@ export default function CartaColeccionDetalle() {
           <p className="text-sm text-gray-600">{getSetName()}</p>
         </div>
 
-        {/* Columna derecha: gestión de colección */}
+        {/* Columna derecha: gestión de la entrada en colección + venta */}
         <div className="space-y-6">
-          {/* Bloque: datos en tu colección */}
+          {/* Bloque: edición de la fila de colección */}
           <div className="bg-white rounded-lg shadow p-4 space-y-4">
             <h3 className="text-lg font-bold text-gray-900">
               Datos en tu colección
             </h3>
 
+            {/* Selector de grado/condición */}
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-1">
                 Grado / condición
@@ -301,6 +454,7 @@ export default function CartaColeccionDetalle() {
               </select>
             </div>
 
+            {/* Campo de cantidad */}
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-1">
                 Cantidad en colección
@@ -318,6 +472,7 @@ export default function CartaColeccionDetalle() {
               </p>
             </div>
 
+            {/* Notas */}
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-1">
                 Notas
@@ -330,6 +485,7 @@ export default function CartaColeccionDetalle() {
               />
             </div>
 
+            {/* Acciones */}
             <div className="flex gap-3">
               <button
                 type="button"
@@ -350,7 +506,7 @@ export default function CartaColeccionDetalle() {
             </div>
           </div>
 
-          {/* Bloque: poner en venta */}
+          {/* Bloque: publicar una copia en venta */}
           <div className="bg-white rounded-lg shadow p-4 space-y-4">
             <h3 className="text-lg font-bold text-gray-900">
               Poner en venta una copia
@@ -360,6 +516,8 @@ export default function CartaColeccionDetalle() {
               cantidad de tu colección. Si la cantidad llega a 0, la carta se
               eliminará de tu colección.
             </p>
+
+            {/* Precio unitario */}
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-1">
                 Precio por unidad (€)
@@ -374,6 +532,8 @@ export default function CartaColeccionDetalle() {
                 placeholder="Ej: 3.50"
               />
             </div>
+
+            {/* Acción de publicar */}
             <button
               type="button"
               onClick={handlePonerEnVenta}

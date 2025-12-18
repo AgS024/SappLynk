@@ -1,28 +1,86 @@
+// Hooks de React:
+// - useState: gestionar estado local (carta, copias, loading, errores y modal)
+// - useEffect: ejecutar cargas al montar el componente y cuando cambia el id de la ruta
 import { useEffect, useState } from "react";
+
+// React Router:
+// - useParams: leer el parámetro :id de la URL (id de carta tipo "swsh1-1")
+// - useNavigate: navegar de forma programática (en este componente se deja preparado para usarlo)
 import { useParams, useNavigate } from "react-router-dom";
+
+// Componente de layout: cabecera con título + contenedor central de la página
 import PageComponent from "../shared/components/PageComponent.jsx";
+
+// Cliente Axios configurado para hablar con el backend (baseURL + token)
 import axiosClient from "../axios.js";
+
+// Modal reutilizable para publicar una carta en venta (cantidad, precio, notas)
 import ModalPublicarVenta from "../features/coleccion/components/ModalPublicarVenta.jsx";
 
 export default function CartaDetalle() {
-  const { id } = useParams(); // id de la carta (ej: swsh1-1)
+  /**
+   * id:
+   * - Identificador de la carta según TCGdex (ej: "swsh1-1")
+   * - Se usa para pedir:
+   *   GET /cartas/{id}               -> detalles de la carta (API proxy backend)
+   *   GET /coleccion/carta/{id}     -> copias que existen en la colección del usuario
+   */
+  const { id } = useParams();
+
+  // Navegación programática (queda por si se decide redirigir tras publicar, etc.)
   const navigate = useNavigate();
 
+  /**
+   * carta:
+   * - Objeto con info de la carta (desde /cartas/{id})
+   * - Dependiendo de cómo venga del backend, puede incluir:
+   *   carta.tcgdex / carta.data / carta.carta ... (por eso se normaliza más abajo)
+   */
   const [carta, setCarta] = useState(null);
+
+  // Estados de carga / error específicos para la petición de la carta
   const [loadingCarta, setLoadingCarta] = useState(true);
   const [errorCarta, setErrorCarta] = useState(null);
 
+  /**
+   * misCopias:
+   * - Array de entradas de colección para ESA carta, normalmente separadas por grado (id_grado)
+   * - Cada entrada suele traer: id_carta, id_grado, cantidad, notas, y a veces relación grado
+   */
   const [misCopias, setMisCopias] = useState([]);
+
+  // Estado de carga para la petición de copias en colección
   const [loadingCopias, setLoadingCopias] = useState(true);
 
+  /**
+   * Estados del modal de publicación:
+   * - mostrarModalVenta: abre/cierra el modal
+   * - copiaSeleccionada: entrada concreta (grado/cantidad/notas) sobre la que se va a publicar
+   */
   const [mostrarModalVenta, setMostrarModalVenta] = useState(false);
   const [copiaSeleccionada, setCopiaSeleccionada] = useState(null);
 
+  /**
+   * useEffect principal:
+   * - Cada vez que cambia el id de la ruta se vuelve a cargar:
+   *   1) la información de la carta
+   *   2) las copias del usuario en su colección para esa carta
+   *
+   * Nota:
+   * - Son dos llamadas independientes para separar estados de carga/errores y evitar mezclar datos.
+   */
   useEffect(() => {
     cargarCarta();
     cargarMisCopias();
   }, [id]);
 
+  /**
+   * cargarCarta
+   *
+   * GET /cartas/{id}
+   * - Pide al backend la información de la carta (normalmente proxy/servicio a TCGdex)
+   * - Controla loadingCarta y errorCarta para mostrar feedback en la UI
+   */
   const cargarCarta = () => {
     setLoadingCarta(true);
     setErrorCarta(null);
@@ -39,13 +97,22 @@ export default function CartaDetalle() {
       .finally(() => setLoadingCarta(false));
   };
 
+  /**
+   * cargarMisCopias
+   *
+   * GET /coleccion/carta/{id}
+   * - Pide al backend las entradas de colección del usuario para esa carta
+   * - Se espera un array (una fila por grado / condición, normalmente)
+   *
+   * Importante:
+   * - Si el backend devuelve un objeto en vez de array, se fuerza a [] para evitar crashes.
+   */
   const cargarMisCopias = () => {
     setLoadingCopias(true);
 
     axiosClient
       .get(`/coleccion/carta/${id}`)
       .then((res) => {
-        // Se espera un array de entradas de colección para esa carta
         setMisCopias(Array.isArray(res.data) ? res.data : []);
       })
       .catch((err) => {
@@ -55,16 +122,43 @@ export default function CartaDetalle() {
       .finally(() => setLoadingCopias(false));
   };
 
+  /**
+   * abrirModalVenta
+   * - Guarda qué copia se ha seleccionado (por ejemplo, grado 7 con cantidad 3)
+   * - Abre el modal para introducir cantidad/precio/notas de la publicación
+   */
   const abrirModalVenta = (copia) => {
     setCopiaSeleccionada(copia);
     setMostrarModalVenta(true);
   };
 
+  /**
+   * cerrarModalVenta
+   * - Cierra el modal y limpia la copia seleccionada para no dejar estado sucio
+   */
   const cerrarModalVenta = () => {
     setMostrarModalVenta(false);
     setCopiaSeleccionada(null);
   };
 
+  /**
+   * handleConfirmarVenta
+   *
+   * Se ejecuta cuando el modal devuelve los datos de publicación:
+   * - cantidad
+   * - precio
+   * - notas
+   *
+   * POST /enventa
+   * - Crea una publicación (en_venta) asociada a:
+   *   - id_carta
+   *   - id_grado (para mantener la condición)
+   *   - cantidad (puede ser >1 si se permite vender varias copias en una publicación)
+   *
+   * Después:
+   * - se recargan las copias con cargarMisCopias() para reflejar el estado actual
+   *   (aunque este componente no resta cantidad localmente, eso depende de cómo lo gestione el backend)
+   */
   const handleConfirmarVenta = (datosVenta) => {
     if (!copiaSeleccionada) return;
 
@@ -78,12 +172,12 @@ export default function CartaDetalle() {
 
     axiosClient
       .post("/enventa", payload)
-      .then((res) => {
-        // Opcional: recargar tus copias para reflejar cambios (si restas cantidad, etc.)
+      .then(() => {
         cargarMisCopias();
         cerrarModalVenta();
-        // Opcional: navegar a "Mis ventas"
-        // navigate("/mis-ventas");
+
+        // Posible mejora: redirigir a la pantalla de publicaciones del usuario
+        // navigate("/mis-cartas-en-venta");
       })
       .catch((err) => {
         console.error("Error al publicar la carta en venta:", err);
@@ -91,6 +185,16 @@ export default function CartaDetalle() {
       });
   };
 
+  /**
+   * getImageUrl
+   *
+   * Devuelve la mejor imagen posible de la carta:
+   * - Prioriza imágenes grandes/hires si existen
+   * - Si falla, cae a small/normal
+   * - Si no hay nada, placeholder
+   *
+   * Se usa tanto para el render principal como para fallback visual consistente.
+   */
   const getImageUrl = () => {
     if (!carta) return "https://via.placeholder.com/300x420?text=Sin+imagen";
 
@@ -107,6 +211,16 @@ export default function CartaDetalle() {
     );
   };
 
+  /**
+   * getSetName
+   *
+   * Intenta resolver el nombre del set desde el objeto de la carta:
+   * - Si viene tcg.set con name (string u objeto multilenguaje), se usa eso.
+   * - Si no existe, se hace un fallback simple desde el id:
+   *   "swsh1-1" -> "swsh1"
+   *
+   * Esto evita que la UI se quede vacía si el backend no trae el set completo.
+   */
   const getSetName = () => {
     if (!carta) return "Set desconocido";
     const tcg = carta.tcgdex || carta.data || carta.carta || carta;
@@ -130,7 +244,6 @@ export default function CartaDetalle() {
       }
     }
 
-    // fallback simple a partir del id "swsh1-1" -> "swsh1"
     const tcgId = tcg.id || carta.id;
     if (tcgId) {
       const [setCode] = String(tcgId).split("-");
@@ -140,6 +253,18 @@ export default function CartaDetalle() {
     return "Set desconocido";
   };
 
+  /**
+   * renderInfoCarta
+   *
+   * Renderiza el bloque superior con imagen y atributos principales.
+   * Maneja 3 estados:
+   * - loadingCarta: mensaje de carga
+   * - errorCarta: mensaje de error
+   * - carta: render real con datos
+   *
+   * Se extraen campos comunes de TCGdex:
+   * - name, rarity, hp, types, number
+   */
   const renderInfoCarta = () => {
     if (loadingCarta) {
       return <p className="text-gray-500">Cargando carta...</p>;
@@ -164,7 +289,7 @@ export default function CartaDetalle() {
 
     return (
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-        {/* Imagen */}
+        {/* Imagen principal de la carta */}
         <div className="flex justify-center">
           <img
             src={getImageUrl()}
@@ -177,7 +302,7 @@ export default function CartaDetalle() {
           />
         </div>
 
-        {/* Info principal */}
+        {/* Panel de información: nombre, set y datos básicos */}
         <div className="space-y-4">
           <h2 className="text-2xl font-bold text-gray-900">{name}</h2>
           <p className="text-sm text-gray-600">{getSetName()}</p>
@@ -203,12 +328,26 @@ export default function CartaDetalle() {
             )}
           </div>
 
-          {/* Texto de ejemplo: ataques, descripción, etc. si quieres añadir más info */}
+          {/* Posible ampliación: ataques, debilidades, descripción, etc. */}
         </div>
       </div>
     );
   };
 
+  /**
+   * renderMisCopias
+   *
+   * Renderiza el bloque "Tus copias en colección":
+   * - loadingCopias: mensaje de carga
+   * - sin copias: mensaje informativo
+   * - con copias: lista de tarjetas (una por entrada de colección)
+   *
+   * Cada copia muestra:
+   * - grado/condición
+   * - cantidad disponible
+   * - notas (si existen)
+   * - botón para abrir el modal de publicación en venta
+   */
   const renderMisCopias = () => {
     if (loadingCopias) {
       return <p className="text-gray-500">Cargando tus copias...</p>;
@@ -230,6 +369,11 @@ export default function CartaDetalle() {
           const cantidad = copia.cantidad || 1;
           const notas = copia.notas;
 
+          // Key robusta:
+          // - si hay id interno, se usa
+          // - si no, se compone por (id_carta + id_grado) y un sufijo aleatorio
+          // Nota: el random evita colisiones, pero hace que React no pueda reutilizar filas
+          // si se re-renderiza (mejorable si existe una key estable).
           const key =
             copia.id ||
             `${copia.id_carta}-${copia.id_grado}-${Math.random()
@@ -241,6 +385,7 @@ export default function CartaDetalle() {
               key={key}
               className="border border-gray-200 rounded-lg p-4 flex flex-col md:flex-row md:items-center md:justify-between gap-3 bg-white"
             >
+              {/* Datos de la copia en colección */}
               <div>
                 <p className="font-semibold text-gray-900">
                   {gradoNombre} — x{cantidad}
@@ -252,6 +397,7 @@ export default function CartaDetalle() {
                 )}
               </div>
 
+              {/* Acción: publicar esta copia/grado en venta */}
               <div className="flex gap-2">
                 <button
                   onClick={() => abrirModalVenta(copia)}
@@ -267,13 +413,21 @@ export default function CartaDetalle() {
     );
   };
 
+  /**
+   * Render principal:
+   * - PageComponent envuelve la vista con layout común
+   * - Se pinta:
+   *   1) información de la carta
+   *   2) listado de copias del usuario (si existen)
+   * - Si el modal está activo, se monta ModalPublicarVenta con callbacks
+   */
   return (
     <PageComponent title="Detalle de carta">
       <div className="space-y-10">
-        {/* Info de la carta */}
+        {/* Bloque superior: datos de la carta */}
         {renderInfoCarta()}
 
-        {/* Tus copias en colección */}
+        {/* Bloque inferior: copias que existen en la colección del usuario */}
         <section className="mt-10">
           <h3 className="text-xl font-bold text-gray-900 mb-4">
             Tus copias en colección
@@ -282,6 +436,7 @@ export default function CartaDetalle() {
         </section>
       </div>
 
+      {/* Modal de publicación en venta */}
       {mostrarModalVenta && copiaSeleccionada && (
         <ModalPublicarVenta
           copia={copiaSeleccionada}

@@ -1,14 +1,50 @@
+// useState: estados del modal (cantidad, grado, notas, loading...)
+// useEffect: para inicializar la lista de grados una vez al montar el componente
 import { useState, useEffect } from "react";
+
+// Cliente axios configurado para hablar con el backend (Laravel)
 import axiosClient from "../../../axios.js";
+
+// Icono para el botón de cerrar (X)
 import { XMarkIcon } from "@heroicons/react/24/outline";
 
+/**
+ * ModalAñadirCarta
+ *
+ * Este componente es un modal (ventana emergente) que se usa para añadir una carta
+ * a la colección del usuario. La idea es que cuando se selecciona una carta del buscador
+ * o del grid, se abre este modal para indicar:
+ *  - el grado (estado de la carta)
+ *  - cuántas copias se quieren añadir
+ *  - notas opcionales
+ *
+ * Props:
+ * - carta: objeto de la carta seleccionada (puede venir en varios formatos según la pantalla)
+ * - sets: lista de sets (sirve para intentar mostrar el nombre del set de forma bonita)
+ * - onConfirm: callback que se lanza cuando la carta se añade correctamente
+ * - onCancel: callback para cerrar el modal sin hacer nada
+ */
 export default function ModalAñadirCarta({ carta, sets = [], onConfirm, onCancel }) {
+  // Cantidad de copias a añadir (mínimo 1)
   const [cantidad, setCantidad] = useState(1);
+
+  // ID del grado seleccionado (por defecto 1)
   const [gradoId, setGradoId] = useState(1);
+
+  // Notas opcionales (texto libre)
   const [notas, setNotas] = useState("");
+
+  // Estado para deshabilitar botones mientras se guarda
   const [loading, setLoading] = useState(false);
+
+  // Lista de grados que se muestra en el <select>
   const [grados, setGrados] = useState([]);
 
+  /**
+   * Inicialización de grados:
+   * En lugar de pedirlos al backend, aquí se dejan fijos porque es un catálogo pequeño.
+   * El useEffect con [] hace que esto solo se ejecute una vez (al abrir/montar el modal).
+   */
   useEffect(() => {
     setGrados([
       { id: 1, nombre: "1 - Mala condición" },
@@ -24,11 +60,28 @@ export default function ModalAñadirCarta({ carta, sets = [], onConfirm, onCance
     ]);
   }, []);
 
+  /**
+   * Normalización del objeto carta:
+   * En el proyecto la carta puede venir desde distintas pantallas y con distinta forma,
+   * así que se usa este fallback para tener un objeto “principal” donde buscar los campos.
+   */
   const tcg = carta?.tcgdex || carta?.data || carta?.carta || carta;
 
+  // ID de carta: se intenta sacar en el orden más típico según el origen
   const cardId = carta?.id || tcg?.id || carta?.id_carta;
+
+  // Nombre de la carta con fallback para no mostrar undefined
   const cardName = tcg?.name || carta?.name || "Carta sin nombre";
 
+  /**
+   * findSetByKey(raw)
+   * Busca un set dentro del array "sets" comparando posibles claves:
+   * - id
+   * - localId
+   * - code
+   *
+   * Esto es útil porque a veces el set en la carta viene como “código” y no como nombre.
+   */
   const findSetByKey = (raw) => {
     if (!raw || !Array.isArray(sets)) return null;
     const key = String(raw).toLowerCase();
@@ -42,13 +95,28 @@ export default function ModalAñadirCarta({ carta, sets = [], onConfirm, onCance
 
     if (!s || !s.name) return null;
 
+    // Caso: name simple
     if (typeof s.name === "string") return s.name;
+
+    // Caso: name multilenguaje
     if (typeof s.name === "object") {
       return s.name.es || s.name.en || Object.values(s.name)[0] || null;
     }
+
     return null;
   };
 
+  /**
+   * getSetName()
+   * Intenta resolver el nombre del set para mostrarlo en el modal.
+   *
+   * El set puede venir:
+   * - como objeto con name
+   * - como string con un id/código
+   * - o incluso deducible a partir del id de la carta (ej: "swsh1-123" -> "swsh1")
+   *
+   * Por eso hay varios pasos y varios fallbacks.
+   */
   const getSetName = () => {
     const setObj =
       tcg?.set ||
@@ -57,8 +125,10 @@ export default function ModalAñadirCarta({ carta, sets = [], onConfirm, onCance
       carta?.carta?.set ||
       carta?.set;
 
+    // Caso: set como objeto
     if (setObj && typeof setObj === "object") {
       if (typeof setObj.name === "string") return setObj.name;
+
       if (setObj.name && typeof setObj.name === "object") {
         return (
           setObj.name.es ||
@@ -67,17 +137,22 @@ export default function ModalAñadirCarta({ carta, sets = [], onConfirm, onCance
           "Set desconocido"
         );
       }
+
+      // Si no hay name, se intenta resolver por id/código usando el array sets
       const possibleId =
         setObj.id || setObj.code || setObj.localId || setObj.setId || setObj.set;
+
       const fromId = findSetByKey(possibleId);
       if (fromId) return fromId;
     }
 
+    // Caso: set como string
     if (typeof setObj === "string") {
       const fromId = findSetByKey(setObj);
       return fromId || setObj;
     }
 
+    // Último fallback: deducir el set desde el id de carta (antes del guion o ":" )
     const tcgId = tcg?.id || carta?.id;
     if (tcgId) {
       const idStr = String(tcgId);
@@ -89,8 +164,14 @@ export default function ModalAñadirCarta({ carta, sets = [], onConfirm, onCance
     return "Set desconocido";
   };
 
+  // Nombre del set resuelto para mostrarlo en pantalla
   const setName = getSetName();
 
+  /**
+   * Fuentes posibles de imagen:
+   * Según TCGdex / backend, puede venir en campos distintos.
+   * Se monta un array en orden de prioridad y se escoge la primera válida.
+   */
   const fuentesImagen = [
     carta?.image?.hires,
     carta?.image?.normal,
@@ -103,8 +184,17 @@ export default function ModalAñadirCarta({ carta, sets = [], onConfirm, onCance
     typeof tcg?.image === "string" ? tcg.image : null,
   ].filter(Boolean);
 
-  const imageUrl = fuentesImagen[0] || "https://via.placeholder.com/150x200?text=Sin+imagen";
+  const imageUrl =
+    fuentesImagen[0] || "https://via.placeholder.com/150x200?text=Sin+imagen";
 
+  /**
+   * handleConfirm()
+   *
+   * Se ejecuta al pulsar "Añadir".
+   * - valida que exista cardId (sin ID no se puede guardar en BD)
+   * - manda POST a /coleccion con id_carta, id_grado, cantidad y notas
+   * - si va bien, llama a onConfirm para que el componente padre actualice la UI
+   */
   const handleConfirm = async () => {
     if (!cardId) {
       alert("No se ha podido determinar el ID de la carta");
@@ -120,6 +210,7 @@ export default function ModalAñadirCarta({ carta, sets = [], onConfirm, onCance
         notas: notas,
       });
 
+      // Notificación al padre para cerrar modal / refrescar datos
       onConfirm?.({ cantidad, gradoId, notas });
     } catch (err) {
       console.error("Error añadiendo carta:", err);
@@ -130,8 +221,11 @@ export default function ModalAñadirCarta({ carta, sets = [], onConfirm, onCance
   };
 
   return (
+    // Fondo oscuro que bloquea la pantalla (modal)
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      {/* Caja principal del modal */}
       <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
+        {/* Cabecera: título + botón cerrar */}
         <div className="flex justify-between items-center p-6 border-b-2 border-gray-200">
           <h2 className="text-2xl font-bold text-gray-900">Añadir Carta</h2>
           <button onClick={onCancel} className="text-gray-500 hover:text-gray-700">
@@ -139,23 +233,28 @@ export default function ModalAñadirCarta({ carta, sets = [], onConfirm, onCance
           </button>
         </div>
 
+        {/* Contenido del modal */}
         <div className="p-6 space-y-4">
+          {/* Resumen de carta */}
           <div className="bg-gray-50 p-3 rounded-lg">
             <p className="font-bold text-gray-900">{cardName}</p>
             <p className="text-sm text-gray-600">{setName}</p>
           </div>
 
+          {/* Imagen */}
           <div className="flex justify-center">
             <img
               src={imageUrl}
               alt={cardName}
               className="h-40 rounded-lg shadow"
               onError={(e) => {
-                e.currentTarget.src = "https://via.placeholder.com/150x200?text=Sin+imagen";
+                e.currentTarget.src =
+                  "https://via.placeholder.com/150x200?text=Sin+imagen";
               }}
             />
           </div>
 
+          {/* Selector de grado */}
           <div>
             <label className="block text-sm font-semibold text-gray-700 mb-2">
               Grado de Condición
@@ -173,6 +272,7 @@ export default function ModalAñadirCarta({ carta, sets = [], onConfirm, onCance
             </select>
           </div>
 
+          {/* Cantidad */}
           <div>
             <label className="block text-sm font-semibold text-gray-700 mb-2">
               Cantidad
@@ -202,6 +302,7 @@ export default function ModalAñadirCarta({ carta, sets = [], onConfirm, onCance
             </div>
           </div>
 
+          {/* Notas */}
           <div>
             <label className="block text-sm font-semibold text-gray-700 mb-2">
               Notas (opcional)
@@ -215,6 +316,7 @@ export default function ModalAñadirCarta({ carta, sets = [], onConfirm, onCance
           </div>
         </div>
 
+        {/* Botones inferiores */}
         <div className="p-6 border-t-2 border-gray-200 flex gap-3">
           <button
             onClick={onCancel}
